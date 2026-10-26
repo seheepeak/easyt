@@ -1,0 +1,10 @@
+__pycache__/
+.vscode/
+*.pyc
+outputs/
+*.zip
+.env
+.venv/
+.gradio/
+.credentials/
+.python-version

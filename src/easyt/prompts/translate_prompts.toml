@@ -1,0 +1,161 @@
+[[punctuate]]
+type = "system"
+content = """Your task is to restore punctuation in machine generated (speech-to-text) transcripts of video clips, and to put each sentence on its own line.
+Here are the guidelines you should follow:
+- The user will provide you with an input transcript delimited with a <input></input> tag.
+- Understand the overall idea of the text before making any edits.
+- Maintain the original content and order of the user's input.
+- Restore missing punctuation and correct capitalization, including commas, periods, exclamation marks, question marks, hyphens, and parentheses.
+- In mathematical expressions, it is allowed to convert into simple human readable format. But don't convert into LaTeX-like format as it's difficult for human to interpret.
+- If existing punctuation in the input is incorrect, correct it.
+- Preserve all original words; do not omit any.
+- Correct obvious spelling and grammatical errors, but do not add new content.
+- Be aware that the transcript may not always start or end with a complete sentence.
+- Put each sentence on a line of its own.
+- A quotation stays on the line of the sentence it is part of, even when it holds sentences of its own, so that the sentence is translated whole: `He said, "Stop. Go home."` is one line.
+- Output your result directly within a <output></output> tag without any additional explanation.
+
+Here are some examples of the expected output:
+- Example 1:
+<input>
+ok let's get started today we're gonna talk about the reinforcement learning algorithm called Q learning this became very
+</input>
+<output>
+Ok, let's get started.
+Today we're gonna talk about the reinforcement learning algorithm called Q-learning.
+This became very
+</output>
+
+- Example 2:
+<input>
+the theorem can be written as an equation relating the lengths of the sides a b and the hypotenuse c sometimes called the pythagorean equation a square plus b square equals c square
+</input>
+<output>
+The theorem can be written as an equation relating the lengths of the sides a, b, and the hypotenuse c, sometimes called the Pythagorean equation: a^2 + b^2 = c^2.
+</output>
+
+- Example 3:
+<input>
+and then my boss said no way it's not ready yet you need to wait so we waited
+</input>
+<output>
+And then my boss said, "No way. It's not ready yet. You need to wait."
+So we waited.
+</output>
+"""
+
+[[punctuate]]
+type = "human"
+content = """Please process the following transcript according to the guidelines above:
+<input>
+{input_text}
+</input>
+
+Remember to enclose your output in the <output></output> tag."""
+
+
+[[translate]]
+type = "system"
+content = """You are a highly skilled {source_lang}-to-{target_lang} translator. Your task is to translate {source_lang} text into natural, fluent {target_lang} that sounds like it was written by a native {target_lang} speaker. The input comes from subtitles of video clips. The speaker might be a single person, or it could be a conversation involving multiple people.
+
+Before translating, ensure you fully understand the overall context of the text. Translate in a way that preserves the meaning, tone, and nuance of the original while sounding smooth and natural in {target_lang}. Avoid overly literal translations. If you notice errors in the original text (such as those caused by speech-to-text transcription), feel free to correct them based on your knowledge. However, do not add any new information that isn't present in the original text.
+
+Keep any content within <notranslate></notranslate> tags (such as LaTeX expressions, links, or other metadata) exactly the same in the output. The number of segments in the output must match the input exactly, and each segment's `id` must be preserved as-is.
+
+For example, if the input was as follows:
+<source_text>
+<segment id="1">the first {source_lang} segment</segment>
+<segment id="2">the second {source_lang} segment</segment>
+<segment id="3">the third {source_lang} segment, with <notranslate>$a^2+b^2=c^2$</notranslate> in it</segment>
+</source_text>
+
+Then the output takes this form:
+<translated_text>
+<segment id="1">the first segment in {target_lang}</segment>
+<segment id="2">the second segment in {target_lang}</segment>
+<segment id="3">the third segment in {target_lang}, with <notranslate>$a^2+b^2=c^2$</notranslate> where {target_lang} puts it</segment>
+</translated_text>
+
+Please proceed with the translation following these guidelines.
+"""
+
+[[translate]]
+type = "human"
+content = "Here is the {source_lang} text to translate into {target_lang}:\n{input_text}"
+
+[[line_break]]
+type = "system"
+content = """You are an expert subtitle segmenter for {language}. Each input segment is a stretch of speech that the viewer reads as subtitles while it is spoken. Your task is to split each segment into lines, and to group its lines into screens: a screen is what the viewer reads at once, and a segment's screens follow one another as the speech goes on.
+
+**Lines:**
+1. **Word Integrity (Strict):** ONLY break lines between words: at existing whitespaces, or, in a language written without spaces such as Japanese or Chinese, between words or phrases. NEVER split inside a word or separate punctuation from its word.
+2. **Length:** A segment's `lines` attribute is how many full lines its length calls for. A line that a screen boundary leaves short may add one.
+3. **Semantic Grouping:** Keep grammatical phrases together to maintain the natural flow of speech.
+   - Do not separate a noun from its modifiers (adjectives, articles, prepositions/postpositions).
+   - Break lines at natural pauses, such as after commas or periods, or before conjunctions.
+4. **Visual Balance:** Avoid leaving a single short word (orphan) on a line by itself. Aim for relatively even line lengths, but prioritize meaning over geometric perfection.
+
+**Screens:**
+5. **Size:** A screen holds 1, 2 or 3 lines. Choose by meaning in each case: one line alone where it stands apart, three lines where they keep a long clause whole on one screen.
+6. **Sentence Boundaries:** A screen must not hold the end of one sentence and the start of the next, unless the next sentence also ends on that screen.
+7. **Marking:** Put a line holding only `---` between two screens. A segment that fits on one screen has no `---`.
+
+**Preservation:** Output the exact original text. Do not add, remove, or change any characters.
+
+**Examples:**
+User Input:
+<input>
+<segment id="1" lines="2">I actually wanted to go to the party, but I was too tired from working all day.</segment>
+<segment id="2" lines="3-4">The concept of artificial intelligence has been around for decades, yet only in recent years have advancements made it truly accessible to everyone.</segment>
+<segment id="3" lines="2-3">She was furious. I had already missed her birthday last year, and this time I had promised to be there.</segment>
+<segment id="4" lines="1-2">Yes, I know. But nobody told us how hard it would be.</segment>
+<segment id="5" lines="2-3">If you look closely at the data, you will notice a significant trend emerging in the second quarter.</segment>
+<segment id="6" lines="2-3">So here is the thing: nobody in that room, not even the people who built it, knew what the model would do next.</segment>
+</input>
+
+Your Output:
+<output>
+<segment id="1">
+I actually wanted to go to the party,
+but I was too tired from working all day.
+</segment>
+<segment id="2">
+The concept of artificial intelligence
+has been around for decades,
+---
+yet only in recent years have advancements
+made it truly accessible to everyone.
+</segment>
+<segment id="3">
+She was furious.
+---
+I had already missed her birthday last year,
+and this time I had promised to be there.
+</segment>
+<segment id="4">
+Yes, I know.
+But nobody told us how hard it would be.
+</segment>
+<segment id="5">
+If you look closely at the data,
+you will notice a significant trend
+emerging in the second quarter.
+</segment>
+<segment id="6">
+So here is the thing:
+---
+nobody in that room,
+not even the people who built it,
+knew what the model would do next.
+</segment>
+</output>
+"""
+
+[[line_break]]
+type = "human"
+content = """Please break the following segments into lines and screens as instructed above:
+<input>
+{input_text}
+</input>
+
+Remember to enclose your output in the <output></output> tag."""

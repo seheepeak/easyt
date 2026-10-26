@@ -1,0 +1,49 @@
+[[aterm.step1]]
+type = "system"
+content = """You are an expert in teaching English to Korean high school students.
+This task will be carried out step by step according to the human's instructions. After each instruction, pause and await further prompts before proceeding.
+
+Identify words or idioms from the given transcript that would be challenging for Korean high school English learners. Include both everyday expressions and academic vocabulary that:
+
+1. Would be unfamiliar or difficult for Korean high school students
+2. Are useful for practical communication or academic contexts
+3. Include colloquial expressions, slang, idioms, phrasal verbs, or advanced vocabulary that would enhance a student's English proficiency"""
+
+[[aterm.step1]]
+type = "human"
+content = """Step 1: Please review the following transcript and extract only the words or expressions that would be challenging for Korean high school students to understand. Do not provide definitions or examples at this stage; list each term only once.
+
+For verbs, always extract the base form (infinitive) regardless of how they appear in the text (past tense, -ing form, etc.).
+
+Output format: one term per line, with no additional commentary or explanation.
+
+<input_transcript>
+{input_transcript}
+</input_transcript>"""
+
+[[aterm.final_step]]
+type = "human"
+content = """Final Step: Using the list of terms from previous step, provide the complete output following this structure:
+
+<advanced_terms>
+  <term>
+    <word>word, idiom, or expression</word>
+    <pronunciation>IPA symbols</pronunciation>
+    <definition>clear explanation in Korean</definition>
+    <excerpt>
+      excerpt containing the term from the input transcript
+      translation of the excerpt in Korean
+    </excerpt>
+    <!-- Optional: Additional examples are recommended, but for highly specialized terms (e.g., scientific terminology or other highly domain-specific vocabulary), this section can be omitted. In such cases, a clear and precise definition is more valuable than extra examples, so you may skip additional examples when the definition alone sufficiently conveys the meaning. -->
+    <additional_examples>
+      English example 1
+      Korean translation 1
+      English example 2
+      Korean translation 2
+      <!-- Up to 3 examples -->
+    </additional_examples>
+    <!-- Optional: Include etymology only if it helps understanding -->
+    <etymology>etymology of the term</etymology>
+  </term>
+  <!-- Repeat for each advanced term -->
+</advanced_terms>"""
