@@ -99,14 +99,14 @@ In the bot's chat:
 
 ## Plugins
 
-A separate package can add a command to both the command line (`easyt NAME ...`) and the bot (`/NAME`). It declares an `easyt.plugins.Command` under the `easyt.commands` entry point group:
+A plugin adds a command to both the command line (`easyt NAME ...`) and the bot (`/NAME`). It is a Python package in `~/.easyt/plugins`, often a link to the folder where you develop it:
 
-```toml
-[project.entry-points."easyt.commands"]
-mycommand = "my_plugin.command:command"
+```bash
+mkdir -p ~/.easyt/plugins
+ln -s ~/code/my-plugin ~/.easyt/plugins/my_plugin
 ```
 
-The `Command` holds the command line's help, arguments and run, and the bot's help line and job. Install the plugin in the same environment as easyt. To give the bot service the plugin, run `easyt install` from that environment.
+The package's `command.py` defines `command`, an `easyt.plugins.Command`: the command line's help, arguments and run, and the bot's help line and job. Plugins run in easyt's own environment, so they can use the libraries easyt installs. Run `uv run easyt restart` so the bot picks up a new plugin.
 
 ## License
 

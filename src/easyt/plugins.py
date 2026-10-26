@@ -1,11 +1,17 @@
-"""Commands other packages add to easyt, found by their `easyt.commands` entry points: each is
-`easyt NAME ...` on the command line and /NAME in the Telegram bot."""
+"""Commands that plugins add to easyt: each is `easyt NAME ...` on the command line and /NAME in
+the Telegram bot. A plugin is a package in ~/.easyt/plugins, often a link to where it is
+developed, whose `command.py` names its `command`."""
 
 import argparse
+import importlib
+import sys
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from functools import cache
-from importlib.metadata import entry_points
+
+from easyt import EASYT_HOME
+
+PLUGINS_DIR = EASYT_HOME / "plugins"
 
 type Work = Callable[[], Awaitable[str]]  # a bot job's work, which returns its finished message
 
@@ -24,9 +30,13 @@ class Command:
 
 @cache
 def commands() -> dict[str, Command]:
-    """The commands of the installed plugins, by name."""
+    """The commands of the plugins in PLUGINS_DIR, by name."""
     found = {}
-    for entry_point in entry_points(group="easyt.commands"):
-        command = entry_point.load()
-        found[command.name] = command
+    if not PLUGINS_DIR.is_dir():
+        return found
+    sys.path.append(str(PLUGINS_DIR))
+    for package in sorted(PLUGINS_DIR.iterdir()):
+        if (package / "command.py").is_file():
+            command = importlib.import_module(f"{package.name}.command").command
+            found[command.name] = command
     return found
