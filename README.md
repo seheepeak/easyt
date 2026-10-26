@@ -15,6 +15,7 @@ You need Python 3.12, [uv](https://docs.astral.sh/uv/) and ffmpeg.
 
 ```bash
 uv sync
+mkdir -p ~/.easyt && cp .env.example ~/.easyt/.env   # then fill it in
 ```
 
 Settings and results live in `~/.easyt`, whatever directory you run from:
@@ -32,7 +33,7 @@ The LLM calls run on `LLM_BACKEND`:
 - `codex`: your ChatGPT subscription, through a logged-in `codex` CLI.
 - A pydantic-ai `provider:model` name, such as `anthropic:claude-opus-5-5` or `openrouter:google/gemini-3-pro`, with that provider's API key.
 
-[CLAUDE.md](CLAUDE.md) lists every setting.
+[.env.example](.env.example) describes every setting.
 
 ## Usage
 

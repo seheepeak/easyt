@@ -89,7 +89,7 @@ All pipeline `run()` methods are async (entry point uses `asyncio.run()`).
 
 ## Environment Variables
 
-Required in `~/.easyt/.env`:
+Set in `~/.easyt/.env`, which [.env.example](.env.example) is the template of (keep the two in step):
 - `ANTHROPIC_API_KEY` - For Claude on the API: `LLM_BACKEND=anthropic:…`
 - `OPENAI_API_KEY` - For OpenAI models on the API: `LLM_BACKEND=openai:…`
 - `OPENROUTER_API_KEY` - Optional, for `LLM_BACKEND=openrouter:…`
