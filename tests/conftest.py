@@ -29,14 +29,14 @@ def source_sentences():
 
 @pytest.fixture(autouse=True)
 def _no_installed_plugins(monkeypatch, tmp_path):
-    """No plugins but a test's own, whatever ~/.easyt/plugins holds."""
+    """No plugins but a test's own, whatever PLUGINS_DIR holds."""
     monkeypatch.setattr(easyt.plugins, "PLUGINS_DIR", tmp_path / "plugins")
     easyt.plugins.commands.cache_clear()
 
 
 @pytest.fixture
 def echo_plugin(monkeypatch):
-    """A plugin's command `echo WORD`, as if easyt had found it by its entry point. Returns the
+    """A plugin's command `echo WORD`, as if easyt had found it in PLUGINS_DIR. Returns the
     words it ran with."""
     ran = []
 

@@ -100,11 +100,10 @@ In the bot's chat:
 
 ## Plugins
 
-A plugin adds a command to both the command line (`easyt NAME ...`) and the bot (`/NAME`). It is a Python package in `~/.easyt/plugins`, often a link to the folder where you develop it:
+A plugin adds a command to both the command line (`easyt NAME ...`) and the bot (`/NAME`). It is a Python package, or a link to one, in `~/.easyt/plugins`. To keep your plugins in another folder, such as the repository you develop them in, name it in `~/.easyt/.env`:
 
-```bash
-mkdir -p ~/.easyt/plugins
-ln -s ~/code/my-plugin ~/.easyt/plugins/my_plugin
+```
+PLUGINS_DIR=~/code/my-plugins
 ```
 
 The package's `command.py` defines `command`, an `easyt.plugins.Command`: the command line's help, arguments and run, and the bot's help line and job. Plugins run in easyt's own environment, so they can use the libraries easyt installs. Run `uv run easyt restart` so the bot picks up a new plugin.

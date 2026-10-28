@@ -1,17 +1,18 @@
 """Commands that plugins add to easyt: each is `easyt NAME ...` on the command line and /NAME in
-the Telegram bot. A plugin is a package in ~/.easyt/plugins, often a link to where it is
-developed, whose `command.py` names its `command`."""
+the Telegram bot. A plugin is a package in PLUGINS_DIR whose `command.py` names its `command`."""
 
 import argparse
 import importlib
+import os
 import sys
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from functools import cache
+from pathlib import Path
 
-from easyt import EASYT_HOME
+from easyt import EASYT_HOME, log
 
-PLUGINS_DIR = EASYT_HOME / "plugins"
+PLUGINS_DIR = EASYT_HOME / Path(os.getenv("PLUGINS_DIR") or "plugins").expanduser()
 
 type Work = Callable[[], Awaitable[str]]  # a bot job's work, which returns its finished message
 
@@ -37,6 +38,12 @@ def commands() -> dict[str, Command]:
     sys.path.append(str(PLUGINS_DIR))
     for package in sorted(PLUGINS_DIR.iterdir()):
         if (package / "command.py").is_file():
-            command = importlib.import_module(f"{package.name}.command").command
+            try:
+                command = importlib.import_module(f"{package.name}.command").command
+            except Exception as error:  # a plugin being written must not stop easyt's own commands
+                log.warning(
+                    f"Plugin {package.name} failed to load: {type(error).__name__}: {error}"
+                )
+                continue
             found[command.name] = command
     return found
