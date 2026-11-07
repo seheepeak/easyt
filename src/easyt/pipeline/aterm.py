@@ -10,19 +10,25 @@ from easyt import log
 from easyt.backend import open_backend
 from easyt.parser import XmlItemParser
 from easyt.pipeline.base import Pipeline_base
+from easyt.pipeline.page import page_head
 from easyt.prompts import load_prompt
 from easyt.stages.concurrency import run_concurrently
 from easyt.utils import spans
 from easyt.youtube import Loader
 
 _CSS = """
-html { font-size: 28px; }
-body { font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; }
+body {
+    max-width: var(--measure); margin: 0 auto; padding: 20px;
+    font-family: var(--english); line-height: 1.6;
+}
 h1 { border-bottom: 2px solid #333; padding-bottom: 5px; }
 section { margin-bottom: 40px; }
 #transcript { background-color: #f5f5f5; padding: 20px; border-radius: 5px; }
 #transcript p { margin: 8px 0; }
-article.term { border: 1px solid #ccc; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+article.term {
+    border: 1px solid #ccc; padding: 15px; border-radius: 5px; margin-bottom: 20px;
+    font-family: var(--korean);
+}
 #advanced-terms article.term:nth-child(odd) { background-color: #f8f0ff; }
 #advanced-terms article.term:nth-child(even) { background-color: #f0f8ff; }
 article.term h2[data-pron] { margin-top: 0; }
@@ -114,7 +120,7 @@ class Pipeline_aterm(Pipeline_base):
         doc = document(title=self.loader.title)
 
         with doc.head:
-            meta(charset="UTF-8")
+            page_head()
             style(raw(_CSS))
 
         with doc:

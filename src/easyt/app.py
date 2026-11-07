@@ -8,6 +8,7 @@ import argparse
 import asyncio
 import logging
 import sys
+from pathlib import Path
 
 from easyt import SUCCESS, plugins, setup_logging
 from easyt.languages import host_language, language_tag
@@ -42,6 +43,14 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     ):
         command = sub.add_parser(name, parents=[verbosity], help=about, description=about)
         command.add_argument("url", metavar="URL", help=URL_HELP)
+    about = "An English article with its translation and advanced terms, as HTML"
+    command = sub.add_parser("article", parents=[verbosity], help=about, description=about)
+    command.add_argument(
+        "file",
+        metavar="FILE",
+        type=Path,
+        help="the article in Markdown, as a web clipper writes it",
+    )
     for plugin in plugins.commands().values():
         command = sub.add_parser(
             plugin.name, parents=[verbosity], help=plugin.about, description=plugin.about
@@ -82,6 +91,21 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 async def run(args: argparse.Namespace) -> None:
     if plugin := plugins.commands().get(args.command):
         await plugin.run(args)
+        return
+
+    if args.command == "article":
+        from easyt.article import read_article
+        from easyt.jobs import run_article
+
+        if not args.file.is_file():
+            sys.exit(f"No such file: {args.file}")
+        # utf-8-sig drops the byte order mark a Windows editor may write first.
+        text = args.file.read_text(encoding="utf-8-sig")
+        try:
+            read_article(text)
+        except ValueError as e:
+            sys.exit(f"{args.file}: {e}")
+        await run_article(text)
         return
 
     from easyt.jobs import run_youtube

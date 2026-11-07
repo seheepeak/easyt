@@ -2,10 +2,11 @@
 
 EasyT turns a YouTube video into subtitles in another language. It downloads the video and its caption track, has an LLM punctuate the raw captions, translates the sentences, maps them back onto the original timestamps, and has the LLM break them into readable subtitle screens. The result is an SRT file next to the video.
 
-It also has two modes for learners of English:
+It also has modes for learners of English:
 
 - `aterm` lists the advanced terms of a video, with their definitions.
 - `transcript` gives the punctuated transcript.
+- `article` reads an English article with its translation: a sentence shows its translation when it is clicked, and under each paragraph a box opens on the advanced terms it uses.
 
 Everything can run from the command line, or from a Telegram bot that runs as a systemd user service.
 
@@ -62,7 +63,10 @@ The video and the SRT are saved in `~/.easyt/outputs/` and uploaded to Google Dr
 ```bash
 uv run easyt aterm "<URL>"        # an English video's advanced terms and their meanings, as HTML sent to Telegram
 uv run easyt transcript "<URL>"   # the punctuated transcript, as a TXT file sent to Telegram
+uv run easyt article story.md     # an English article in Markdown, with its translation and terms, as HTML sent to Telegram
 ```
+
+An article is Markdown as a web clipper writes it: YAML front matter with its details (`site`, `author`, `published`, `url`, `description`), the article under its `# title`, and an `<!-- EOF -->` line last. A file may leave out the front matter and the last line.
 
 Options come after the command: `uv run easyt aterm -q "<URL>"`.
 
@@ -96,6 +100,7 @@ In the bot's chat:
 
 - Send a YouTube URL to translate it. When it is done, the bot answers with the Google Drive folder.
 - `/aterm URL` and `/transcript URL` run the other modes.
+- Send an article in Markdown to have it as HTML: paste it as a message, its front matter first and its `<!-- EOF -->` line last, or send it as a `.md` or `.txt` file when it is longer than the 4096 characters a message holds. An article that Telegram cut into several messages is not read in part: the bot asks for the file instead.
 - `/status` shows the running job and the waiting ones, and `/cancel` cancels the running job. The Cancel button on a job's message does the same.
 
 ## Plugins

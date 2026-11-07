@@ -38,6 +38,7 @@ class TestPipelineAterm:
         pipeline = Pipeline_aterm(transcript=[], loader=mock_loader)
         html = pipeline.generate_html([CHUNK], parser.close())
         assert f"<p>{CHUNK}</p>" in html
+        assert 'name="viewport"' in html  # else a phone shrinks the page, and its text with it
         assert "to criticize openly" in html
         assert '<p class="translation">La gente lo critica.</p>' in html
 

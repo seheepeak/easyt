@@ -148,6 +148,8 @@ def test_a_playlist_url_names_the_playlist_and_may_pick_some_of_its_videos():
         "https://www.youtube.com/watch?v=tooshort",
         "https://youtu.be/Qmafkf_08uQ[0:2]",
         "https://www.youtube.com/embed/videoseries?list=PLx0sYbCqOb8TBPRdmBHs5Iftvv9TPboYG",
+        f"{PLAYLIST} and a note",
+        f"{PLAYLIST}\n{PLAYLIST}",  # two URLs, which urlparse would join into one id
     ],
 )
 def test_anything_else_is_refused(url):

@@ -2,6 +2,7 @@
 
 import pytest
 
+import easyt.jobs
 from easyt.app import parse_args, run
 
 URL = "https://www.youtube.com/watch?v=Qmafkf_08uQ"
@@ -39,3 +40,20 @@ def test_the_service_has_commands_of_its_own():
         "log",
         "restart",
     ]
+
+
+async def test_an_article_file_is_run_and_a_file_of_no_text_refused(monkeypatch, tmp_path):
+    ran = []
+
+    async def run_article(text):
+        ran.append(text)
+
+    monkeypatch.setattr(easyt.jobs, "run_article", run_article)
+    path = tmp_path / "story.md"
+    path.write_text("<!-- EOF -->")
+    with pytest.raises(SystemExit):
+        await run(parse_args(["article", str(path)]))
+    # Saved by a Windows editor, with a byte order mark first.
+    path.write_text("# Title\n\nWords.", encoding="utf-8-sig")
+    await run(parse_args(["article", str(path)]))
+    assert ran == ["# Title\n\nWords."]

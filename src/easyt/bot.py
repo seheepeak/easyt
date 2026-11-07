@@ -31,9 +31,10 @@ from telegram.ext import (
 )
 
 from easyt import log, plugins
-from easyt.jobs import Mode, run_youtube
+from easyt.article import article_part, read_article
+from easyt.jobs import Mode, run_article, run_youtube
 from easyt.utils.spans import ICONS, Span, current_span, duration, span
-from easyt.youtube import parse_youtube_url
+from easyt.youtube import is_youtube_url, parse_youtube_url
 
 DRIVE_FOLDER = "https://drive.google.com/drive/folders/"
 # ASCII characters only, so words written right after a URL stay out of it.
@@ -271,13 +272,21 @@ async def _youtube(mode: Mode, url: str) -> str:
     return f"{title}\n{DRIVE_FOLDER}{folder}"
 
 
+async def _article(text: str) -> str:
+    await run_article(text)
+    return read_article(text).details.get("url", "")  # the pipeline has sent its HTML to the chat
+
+
 def build_app(token: str, chat_id: int) -> Application:
     runner = Runner()
     # New messages of the one chat; edits of old ones are left alone.
     chat = filters.Chat(chat_id) & filters.UpdateType.MESSAGE
     commands = COMMANDS | {name: plugin.bot_about for name, plugin in plugins.commands().items()}
-    help_text = "Send a YouTube video or playlist URL to translate it.\n" + "\n".join(
-        f"/{command} - {about}" for command, about in commands.items()
+    help_text = (
+        "Send a YouTube video or playlist URL to translate it, or an English article in Markdown "
+        "to read it with its translation and terms: as a message, its front matter first and an "
+        "<!-- EOF --> line last, or as a .md or .txt file when it is longer than a message holds.\n"
+        + "\n".join(f"/{command} - {about}" for command, about in commands.items())
     )
 
     async def add_youtube(request: Message, mode: Mode, url: str) -> None:
@@ -288,11 +297,34 @@ def build_app(token: str, chat_id: int) -> Application:
             return
         await runner.add(request, f"{mode.capitalize()} {url}", lambda: _youtube(mode, url))
 
+    async def add_article(request: Message, text: str) -> None:
+        try:
+            title = read_article(text).title
+        except ValueError as e:
+            await request.reply_text(str(e))
+            return
+        await runner.add(request, f"Article {title}".rstrip(), lambda: _article(text))
+
     async def on_text(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
-        if not (urls := find_urls(update.message.text)):
-            await update.message.reply_text(help_text)
-        for url in urls:
-            await add_youtube(update.message, "translate", url)
+        text = update.message.text.strip()
+        # No part of an article Telegram cut runs: the first gets an answer, the last none.
+        match article_part(text):
+            case "whole":
+                await add_article(update.message, text)
+            case "first":
+                await update.message.reply_text(
+                    "Telegram cut this article into messages, as it is longer than one holds: "
+                    "send it as a .md or .txt file"
+                )
+            case None if is_youtube_url(text):
+                await add_youtube(update.message, "translate", text)
+            case None:
+                await update.message.reply_text(help_text)
+
+    async def on_text_file(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
+        data = await (await update.message.document.get_file()).download_as_bytearray()
+        # utf-8-sig drops the byte order mark a Windows editor may write first.
+        await add_article(update.message, data.decode("utf-8-sig", errors="replace"))
 
     def on_url_command(mode: Mode):
         async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -364,6 +396,13 @@ def build_app(token: str, chat_id: int) -> Application:
     app.add_handler(CommandHandler("status", on_status, filters=chat))
     app.add_handler(CommandHandler("cancel", on_cancel, filters=chat))
     app.add_handler(MessageHandler(chat & filters.TEXT & ~filters.COMMAND, on_text))
+    # A .md or .txt file counts whatever media type the sending app gives it.
+    text_file = (
+        filters.Document.TEXT
+        | filters.Document.FileExtension("md")
+        | filters.Document.FileExtension("txt")
+    )
+    app.add_handler(MessageHandler(chat & text_file, on_text_file))
     app.add_handler(CallbackQueryHandler(on_cancel_button, pattern=r"^cancel:\d+$"))
     return app
 

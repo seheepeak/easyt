@@ -14,6 +14,7 @@ from easyt.utils.threads import checkpoint
 
 _PICKS = re.compile(r"\[(-?\d*):(-?\d*)\]$")
 _VIDEO_ID = re.compile(r"[\w-]{11}")
+_PLAYLIST_ID = re.compile(r"[\w-]+")
 
 
 def parse_youtube_url(url: str) -> tuple[str | None, str | None, slice]:
@@ -43,9 +44,18 @@ def parse_youtube_url(url: str) -> tuple[str | None, str | None, slice]:
         if picks != slice(None):
             raise ValueError(f"[start:end] picks videos of a playlist, not of one video: {url}")
         return video, None, picks
-    if playlist:
+    if playlist and _PLAYLIST_ID.fullmatch(playlist):
         return None, playlist, picks
     raise ValueError(f"Not the URL of a YouTube video or playlist: {url}")
+
+
+def is_youtube_url(text: str) -> bool:
+    """Whether `text` is all a URL that `parse_youtube_url()` reads."""
+    try:
+        parse_youtube_url(text)
+    except ValueError:
+        return False
+    return True
 
 
 def _original_track(info: dict) -> str | None:

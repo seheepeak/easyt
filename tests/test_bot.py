@@ -3,6 +3,7 @@
 import asyncio
 import contextlib
 from collections import deque
+from types import SimpleNamespace
 
 import pytest
 from telegram.ext import CommandHandler
@@ -307,3 +308,60 @@ def test_a_message_is_cut_to_telegrams_limit_in_utf16_units():
 )
 def test_urls_are_found_without_the_sentence_around_them(text, urls):
     assert find_urls(text) == urls
+
+
+class FakeDocument:
+    """A file sent to the chat, which downloads as `data`."""
+
+    def __init__(self, data):
+        self.data = data
+
+    async def get_file(self):
+        return self
+
+    async def download_as_bytearray(self):
+        return bytearray(self.data)
+
+
+def _callback(app, name):
+    return next(h.callback for h in app.handlers[0] if h.callback.__name__ == name)
+
+
+async def test_an_article_comes_as_a_whole_message_or_as_any_text_file():
+    app = build_app("123:abc", 1)
+    message = FakeMessage('---\nsite: "The Paper"\n---\n\n# Title\n\nOne.\n\n<!-- EOF -->')
+    await _callback(app, "on_text")(SimpleNamespace(message=message), None)
+    assert message.replies[0].text == "Article Title\nWaiting"
+
+    # A file needs neither the front matter nor the EOF line, and may start with the byte order
+    # mark a Windows editor writes.
+    file = FakeMessage()
+    file.document = FakeDocument("# Title\n\nOne.".encode("utf-8-sig"))
+    await _callback(app, "on_text_file")(SimpleNamespace(message=file), None)
+    assert file.replies[0].text == "Article Title\nWaiting"
+
+    empty = FakeMessage()
+    empty.document = FakeDocument(b"  \n")
+    await _callback(app, "on_text_file")(SimpleNamespace(message=empty), None)
+    assert empty.replies[0].text == "This article has no text to read"
+
+
+async def test_no_part_of_an_article_telegram_cut_runs_and_only_the_first_is_answered():
+    on_text = _callback(build_app("123:abc", 1), "on_text")
+    first = FakeMessage('---\nsite: "The Paper"\n---\n\n# Title\n\nOne.')
+    between = FakeMessage("Two, as https://youtu.be/Qmafkf_08uQ shows.")
+    last = FakeMessage("Three, as https://youtu.be/Qmafkf_08uQ shows.\n\n<!-- EOF -->")
+    for message in (first, between, last):
+        await on_text(SimpleNamespace(message=message), None)
+
+    [reply] = first.replies
+    assert reply.text.startswith("Telegram cut this article into messages")
+    assert between.replies[0].text.startswith("Send a YouTube video")  # the help, not a job
+    assert last.replies == []
+
+
+async def test_a_message_that_is_a_youtube_url_is_translated():
+    on_text = _callback(build_app("123:abc", 1), "on_text")
+    url = FakeMessage("https://youtu.be/Qmafkf_08uQ\n")
+    await on_text(SimpleNamespace(message=url), None)
+    assert url.replies[0].text == "Translate https://youtu.be/Qmafkf_08uQ\nWaiting"

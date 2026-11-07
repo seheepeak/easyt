@@ -1,16 +1,19 @@
 """What the CLI and the Telegram bot run: a pipeline on each video of a YouTube URL, then the
-Google Drive upload."""
+Google Drive upload; or the article pipeline on an article."""
 
 import functools
 import shutil
+from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
 from yt_dlp.utils import sanitize_filename
 
 from easyt import OUTPUTS_DIR, log
+from easyt.article import read_article
 from easyt.gdrive import check_drive_sign_in, upload_to_gdrive
 from easyt.languages import host_language
+from easyt.pipeline.article import Pipeline_article
 from easyt.pipeline.aterm import Pipeline_aterm
 from easyt.pipeline.standard import Pipeline
 from easyt.utils.spans import span
@@ -98,3 +101,24 @@ async def run_youtube(
             s.advance()
 
     return title, await upload_to_gdrive(parent_dir)
+
+
+async def run_article(text: str) -> None:
+    """Read the article in `text` with its translation into the host's language, as HTML sent to
+    the chat. Its folder is named like a video's: by the day, its site and its title."""
+    article = read_article(text)
+    target_lang = host_language()
+    date = datetime.now().astimezone().strftime("%Y-%m-%d")
+    title = _cut(sanitize_filename(article.title), 150) or "article"
+    site = _cut(sanitize_filename(article.details.get("site", "")), 50)
+    outdir = OUTPUTS_DIR / (f"[{date}] ({site}) {title}" if site else f"[{date}] {title}")
+    outdir.mkdir(parents=True, exist_ok=True)
+    # Kept, so that `easyt article` can run it again.
+    (outdir / "article.md").write_text(text, encoding="utf-8")
+    with span(article.title, f"en → {target_lang}"):
+        await Pipeline_article(article, outdir / f"{title}.html", target_lang).run()
+
+
+def _cut(text: str, size: int) -> str:
+    """`text` cut to `size` bytes of UTF-8, as a path component holds 255 of them at most."""
+    return text.encode()[:size].decode(errors="ignore").strip()

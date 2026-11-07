@@ -9,11 +9,12 @@ from easyt.prompts import load_prompt
 
 
 class Translator:
-    """Translates a chunk of sentences on LLM_BACKEND."""
+    """Translates a chunk of sentences on LLM_BACKEND, with the prompt for their kind: a video's
+    subtitles, or `article.translate` for an article's sentences."""
 
-    def __init__(self, source_lang: str, target_lang: str):
+    def __init__(self, source_lang: str, target_lang: str, prompt: str = "translate"):
         self.backend = open_backend("Translation")
-        self.prompt = load_prompt("translate").partial(
+        self.prompt = load_prompt(prompt).partial(
             source_lang=language_name(source_lang), target_lang=language_name(target_lang)
         )
 
