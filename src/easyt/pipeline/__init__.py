@@ -1,1 +1,1 @@
-"""One pipeline per mode: standard (subtitle translation), aterm (terms) and article."""
+"""One pipeline per mode: subtitle (translated subtitles), aterm (terms) and article."""

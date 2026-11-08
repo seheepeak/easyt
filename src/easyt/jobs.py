@@ -15,7 +15,7 @@ from easyt.gdrive import check_drive_sign_in, upload_to_gdrive
 from easyt.languages import host_language, language_name
 from easyt.pipeline.article import Pipeline_article
 from easyt.pipeline.aterm import Pipeline_aterm
-from easyt.pipeline.standard import Pipeline
+from easyt.pipeline.subtitle import Pipeline_subtitle
 from easyt.utils.spans import span
 from easyt.utils.threads import in_thread
 from easyt.youtube import Loader, parse_youtube_url
@@ -52,7 +52,7 @@ async def run_pipeline_single(
         # run pipeline
         if mode == "aterm":
             return loader, None, await Pipeline_aterm(transcript, loader).run()
-        pipeline = Pipeline(
+        pipeline = Pipeline_subtitle(
             transcript,
             loader,
             source_lang=loader.lang,

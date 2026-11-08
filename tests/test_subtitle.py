@@ -8,7 +8,7 @@ import srt
 
 import easyt.stages.line_break
 import easyt.stages.translate
-from easyt.pipeline.standard import Pipeline, do_sent_break
+from easyt.pipeline.subtitle import Pipeline_subtitle, do_sent_break
 from easyt.stages.line_break import LLMLineBreaker
 
 PUNCTUATED = [{"sentences": [[0, "Hola."], [1, "Mucho gusto."]]}]
@@ -16,7 +16,7 @@ PUNCTUATED = [{"sentences": [[0, "Hola."], [1, "Mucho gusto."]]}]
 
 def _pipeline(tmp_path, source_lang, target_lang):
     loader = SimpleNamespace(outdir=tmp_path)
-    return Pipeline([], loader, source_lang=source_lang, target_lang=target_lang)
+    return Pipeline_subtitle([], loader, source_lang=source_lang, target_lang=target_lang)
 
 
 async def test_a_video_already_in_the_target_language_is_not_translated(fake_backend, tmp_path):

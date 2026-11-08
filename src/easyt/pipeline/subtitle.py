@@ -65,7 +65,7 @@ async def _subtitles(translated: list[dict], line_breaker: LLMLineBreaker) -> li
     return subtitles
 
 
-class Pipeline(Pipeline_base):
+class Pipeline_subtitle(Pipeline_base):
     def __init__(
         self,
         transcript: list[dict],  # List of dicts with keys "start", "duration", "text"
