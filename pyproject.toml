@@ -9,7 +9,7 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
     "levenshtein>=0.25.0,<1",
     "python-dotenv>=1.0.1,<2",
-    "yt-dlp>=2026.8.19",
+    "yt-dlp>=2026.10.26",
     "dominate>=3.1.0,<4",
     "numpy>=2.2.3,<3",
     "python-telegram-bot>=22.6,<23",
