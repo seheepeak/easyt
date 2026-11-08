@@ -116,7 +116,7 @@ def _json3_cues(track: dict) -> list[dict]:
         segs = event.get("segs")
         if not segs:
             continue
-        if text := " ".join("".join(s.get("utf8", "") for s in segs).split()):
+        if text := "".join(s.get("utf8", "") for s in segs).strip():
             cues.append(
                 {
                     "text": text,
@@ -185,6 +185,10 @@ class Loader:
             s.result = f"{video_path.stat().st_size / 1e6:.0f} MB"
         return video_path, transcript
 
+    def original_captions(self) -> list[dict]:
+        """The captions as YouTube gave them, whose times overlap where `load()`'s do not."""
+        return json.loads((self.outdir / "original_transcript.json").read_text(encoding="utf-8"))
+
     def _download_transcript(self) -> list[dict] | None:
         # check if the transcript is already downloaded
         orginal_transcript_path = self.outdir / "original_transcript.json"
@@ -193,7 +197,7 @@ class Loader:
         if self.track is None:
             return None
 
-        # json3 rather than the other formats: its cues do not overlap, so
+        # json3 rather than VTT: its cues do not repeat each other's text, so
         # nothing has to be deduplicated afterwards.
         ydl_opts = {
             "skip_download": True,

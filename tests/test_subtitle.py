@@ -141,3 +141,57 @@ async def test_texts_are_broken_into_lines_ten_a_call_at_once(fake_backend, monk
     subtitles = list(srt.parse(out.read_text()))
     assert [s.content.replace(",\n", ", ") for s in subtitles] == texts
     assert calls == 3 and most == 2
+
+
+async def _whole_run(fake_backend, monkeypatch, tmp_path, target_lang):
+    """The files a run makes of a Spanish video of two sentences."""
+
+    async def translate(system, prompt):
+        return '<segment id="1">Hello.</segment><segment id="2">Nice to meet you.</segment>'
+
+    fake_backend(easyt.stages.translate, translate)
+    fake_backend(easyt.stages.line_break, run=None)  # never asked
+    transcript = [
+        {"text": "hola", "start": 1.0, "duration": 2.0},
+        {"text": "mucho gusto", "start": 3.0, "duration": 2.0},
+    ]
+    captions = [
+        {"text": "hola", "start": 1.0, "duration": 3.5},  # it runs into the next
+        # Long enough that line breaking would ask the model about it.
+        {"text": "mucho gusto de conocerte por fin aqui", "start": 3.0, "duration": 2.0},
+        {"text": "[Music]", "start": 5.0, "duration": 1.0},
+    ]
+    loader = SimpleNamespace(
+        outdir=tmp_path, video_path=tmp_path / "video.mp4", original_captions=lambda: captions
+    )
+    pipeline = Pipeline_subtitle(transcript, loader, source_lang="es", target_lang=target_lang)
+
+    async def punctuate(text):
+        return [{**PUNCTUATED[0], "chunk_start": 0, "chunk_end": len(text)}]
+
+    monkeypatch.setattr(pipeline.punct, "run", punctuate)
+    return await pipeline.run()
+
+
+async def test_the_captions_are_saved_as_they_came_beside_the_translation(
+    fake_backend, monkeypatch, tmp_path
+):
+    paths = await _whole_run(fake_backend, monkeypatch, tmp_path, "en")
+
+    assert [path.name for path in paths] == ["video.en.srt", "video.es.srt"]
+    translation, captions = (list(srt.parse(path.read_text())) for path in paths)
+    assert [s.content for s in translation] == ["Hello.", "Nice to meet you."]
+    assert [(s.content, s.start.total_seconds(), s.end.total_seconds()) for s in captions] == [
+        ("hola", 1.0, 4.5),
+        ("mucho gusto de conocerte por fin aqui", 3.0, 5.0),
+        ("[Music]", 5.0, 6.0),
+    ]
+
+
+async def test_a_video_already_in_the_target_language_gets_one_srt(
+    fake_backend, monkeypatch, tmp_path
+):
+    paths = await _whole_run(fake_backend, monkeypatch, tmp_path, "es")
+
+    assert [path.name for path in paths] == ["video.es.srt"]
+    assert [s.content for s in srt.parse(paths[0].read_text())] == ["Hola.", "Mucho gusto."]

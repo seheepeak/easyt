@@ -65,6 +65,21 @@ async def _subtitles(translated: list[dict], line_breaker: LLMLineBreaker) -> li
     return subtitles
 
 
+def _captions_srt(captions: list[dict]) -> str:
+    """Where generated captions overlap, two lines stay up at once, which is easier to read."""
+    return srt.compose(
+        [
+            srt.Subtitle(
+                i,
+                timedelta(seconds=c["start"]),
+                timedelta(seconds=c["start"] + c["duration"]),
+                c["text"],
+            )
+            for i, c in enumerate(captions, 1)
+        ]
+    )
+
+
 class Pipeline_subtitle(Pipeline_base):
     def __init__(
         self,
@@ -89,7 +104,7 @@ class Pipeline_subtitle(Pipeline_base):
         self.line_breaker = LLMLineBreaker(target_lang)
         self.transcript_only = transcript_only
 
-    async def run(self) -> Path:
+    async def run(self) -> list[Path]:
         input = " ".join([sub["text"] for sub in self.input_transcript])
         punct_results = await self.punct.run(input)
 
@@ -101,7 +116,7 @@ class Pipeline_subtitle(Pipeline_base):
                         file.write(p + "\n")
             log.success(f"Transcript generated: {txt_path}")
             await self.send_document_to_telegram(txt_path)
-            return txt_path
+            return [txt_path]
 
         translated = await self._translate(punct_results)
         translate_output_path = self.loader.outdir / f"translate_results_{self.target_lang}.json"
@@ -117,7 +132,13 @@ class Pipeline_subtitle(Pipeline_base):
 
         srt_path = self.loader.video_path.with_suffix(f".{self.target_lang}.srt")
         await do_sent_break(srt_path, target_lang_results, self.line_breaker)
-        return srt_path
+        if self.source_lang == self.target_lang:
+            return [srt_path]
+
+        # To check what the video says: YouTube's captions, not the transcript cut for timing.
+        captions_path = self.loader.video_path.with_suffix(f".{self.source_lang}.srt")
+        captions_path.write_text(_captions_srt(self.loader.original_captions()), encoding="utf-8")
+        return [srt_path, captions_path]
 
     async def _translate(self, punct_results: list[dict]) -> list[dict]:
         """Each punctuated sentence with its translation, or itself where the video is already in

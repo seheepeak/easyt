@@ -44,7 +44,7 @@ uv run pytest tests/test_bot.py -v             # Single test file
 
 The application uses a pipeline architecture with a base class and specialized pipelines, all in [pipeline/](src/easyt/pipeline/):
 
-- **Pipeline_subtitle** ([subtitle.py](src/easyt/pipeline/subtitle.py)) - Video subtitle translation: punctuation → LLM translation (Claude, or GPT through Codex) → timestamp mapping → SRT generation
+- **Pipeline_subtitle** ([subtitle.py](src/easyt/pipeline/subtitle.py)) - Video subtitle translation: punctuation → LLM translation (Claude, or GPT through Codex) → timestamp mapping → SRT generation, and an SRT of the YouTube captions when the video is in another language
 - **Pipeline_aterm** ([aterm.py](src/easyt/pipeline/aterm.py)) - Advanced terms mode: extracts vocabulary with definitions, generates HTML output
 - **Pipeline_article** ([article.py](src/easyt/pipeline/article.py)) - An article that [article.py](src/easyt/article.py) read from Markdown, translated from the language Lingua found it in: SaT splits each block into sentences (a heading stays whole, as SaT takes its capitalized words for sentence starts), then one stage translates the sentences, as an article's, and picks out each paragraph's advanced terms, the article's blocks cut into even chunks of about `CHUNK_SIZE` letters for both. The HTML shows a sentence's translation in a tooltip when it is clicked or tapped, until the next click (a drag that selects text shows nothing); where scripts do not run, as in Telegram's preview on iPhone, each sentence labels a hidden checkbox, and a tapped one's translation shows under it by CSS alone. Under each block, a `<details>` box holds the terms listed for it, a term two chunks list kept where it came first. A table shows as the article has it, untranslated and without terms, in a box that scrolls sideways when the table is wider than the page. Its images go in the page as data URLs, as Telegram's preview on iPhone loads nothing from the internet: `embed_images()` downloads each, asking for AVIF as a browser does (NYT's is a tenth of its PNG), and one that fails, or is over `MAX_IMAGE_BYTES`, keeps its URL. Its text, headings too, is in `--english`, and the tooltip and the terms boxes, which hold the Korean, in `--korean` (see Pages below). It does not use Pipeline_base, which is for videos
 - **Pipeline_base** ([base.py](src/easyt/pipeline/base.py)) - Common functionality: punctuation, and sending a result to the Telegram chat through `send_document()` ([notify.py](src/easyt/notify.py))
@@ -90,6 +90,7 @@ All pipeline `run()` methods are async (entry point uses `asyncio.run()`).
 3. Translate sentences on `LLM_BACKEND` (chunked processing), unless the video is already in the target language
 4. Map translated sentences back to original timestamps using edit distance
 5. Break lines and group them into screens on `LLM_BACKEND`, then generate the SRT file with one subtitle per screen: each gets a second first (`MIN_SCREEN_SECONDS`, as far as the text's time allows), and the rest of the text's time by its share of the letters
+6. Write the YouTube captions as they came (`loader.original_captions()`, not the transcript `_validate_subtitles()` cut for the timing above) to an SRT in the video's own language, with no model call, to check what the video says: where generated captions overlap, two lines stay up at once, which reads better. A video already in the target language has just the one SRT
 
 ## Environment Variables
 
@@ -111,6 +112,6 @@ Results are saved to `~/.easyt/outputs/`, organized by video title with date pre
 - Original transcript JSON
 - Punctuation results
 - Translation cache files (per chunk and target language)
-- Final SRT subtitle file, `<title>.<lang>.srt`
+- Final SRT subtitle files, `<title>.<lang>.srt`: the translation's and, when the video is in another language, its captions'
 
 An article's folder there, `[<date>] (<site>) <title>`, holds the Markdown it came as (`article.md`), its translation and term caches per chunk, named by a digest of the chunk's text (`translate_cache_<lang>_<digest>.txt`, `terms_cache_<lang>_<digest>.txt`), and `<title>.html`.

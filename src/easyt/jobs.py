@@ -37,7 +37,7 @@ async def run_pipeline_single(
         def skip(why: str, video_path: Path | None = None):
             log.warning(f"{why}. Skipping...")
             s.result = "skipped"
-            return loader, video_path, None
+            return loader, video_path, []
 
         if loader.lang is None:
             return skip("YouTube names no caption track in the video's own language")
@@ -51,7 +51,7 @@ async def run_pipeline_single(
 
         # run pipeline
         if mode == "aterm":
-            return loader, None, await Pipeline_aterm(transcript, loader).run()
+            return loader, None, [await Pipeline_aterm(transcript, loader).run()]
         pipeline = Pipeline_subtitle(
             transcript,
             loader,
@@ -92,10 +92,10 @@ async def run_youtube(
     picked = range(len(playlist))[picks]
     with span(title, total=len(picked)) as s:
         for idx in picked:
-            _, video_path, out_path = await run_single(playlist[idx], parent_dir)
+            _, video_path, out_paths = await run_single(playlist[idx], parent_dir)
 
             # copy video and srt to the playlist directory
-            for path in (video_path, out_path):
+            for path in (video_path, *out_paths):
                 if path is not None:
                     await in_thread(shutil.copy, path, parent_dir / f"({idx + 1}) {path.name}")
             s.advance()

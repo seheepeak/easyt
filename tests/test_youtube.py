@@ -1,9 +1,11 @@
 """Which video or playlist a YouTube URL names, which caption track the Loader asks YouTube for,
 and how it reads it."""
 
+import json
+
 import pytest
 
-from easyt.youtube import _json3_cues, _original_track, parse_youtube_url
+from easyt.youtube import Loader, _json3_cues, _original_track, parse_youtube_url
 
 
 def _audio(lang: str | None, preference: int = -1) -> dict:
@@ -106,8 +108,23 @@ def test_a_json3_track_becomes_one_subtitle_per_cue():
     }
     assert _json3_cues(track) == [
         {"text": "Hello there", "start": 0.1, "duration": 2.4},
-        {"text": "and welcome back", "start": 2.5, "duration": 3.0},
+        {"text": "and welcome\nback", "start": 2.5, "duration": 3.0},
     ]
+
+
+def test_the_original_captions_keep_the_overlaps_the_transcript_loses(tmp_path):
+    captions = [
+        {"text": "one", "start": 0.0, "duration": 3.0},
+        {"text": "two", "start": 1.0, "duration": 3.0},
+    ]
+    (tmp_path / "original_transcript.json").write_text(json.dumps(captions), encoding="utf-8")
+    loader = Loader.__new__(Loader)
+    loader.outdir, loader.skip_exsisting = tmp_path, True
+
+    _, transcript = loader.load(transcript_only=True)
+
+    assert transcript[0]["duration"] == 1.0
+    assert loader.original_captions() == captions
 
 
 PLAYLIST = "https://www.youtube.com/playlist?list=PLx0sYbCqOb8TBPRdmBHs5Iftvv9TPboYG"
