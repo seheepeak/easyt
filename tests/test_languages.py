@@ -1,8 +1,8 @@
-"""Which language the host's locale names."""
+"""Which language the host's locale names, and which one a text is in."""
 
 import pytest
 
-from easyt.languages import host_language
+from easyt.languages import detect_language, host_language
 
 
 @pytest.mark.parametrize(
@@ -22,3 +22,17 @@ def test_the_host_language_is_the_one_its_locale_names(monkeypatch, env, code):
     for var, value in env.items():
         monkeypatch.setenv(var, value)
     assert host_language() == code
+
+
+@pytest.mark.parametrize(
+    "text, code",
+    [
+        ("Hello world", "en"),  # even a text this short
+        ("이 메모는 이번에 처음 알려졌다.", "ko"),
+        ("Le mémo n'avait jamais été rendu public.", "fr"),
+        ("中国情报机构招募了一名女商人。", "zh"),
+        ("2026 38%", None),  # numbers have no language
+    ],
+)
+def test_a_text_is_in_the_language_lingua_finds(text, code):
+    assert detect_language(text) == code

@@ -346,6 +346,14 @@ async def test_an_article_comes_as_a_whole_message_or_as_any_text_file():
     assert empty.replies[0].text == "This article has no text to read"
 
 
+async def test_an_article_already_in_the_host_language_is_answered_at_once():
+    message = FakeMessage(
+        '---\nsite: "신문"\n---\n\n# 제목\n\n이 메모는 이번에 처음 알려졌다.\n\n<!-- EOF -->'
+    )
+    await _callback(build_app("123:abc", 1), "on_text")(SimpleNamespace(message=message), None)
+    assert message.replies[0].text == "This article is already in Korean"
+
+
 async def test_no_part_of_an_article_telegram_cut_runs_and_only_the_first_is_answered():
     on_text = _callback(build_app("123:abc", 1), "on_text")
     first = FakeMessage('---\nsite: "The Paper"\n---\n\n# Title\n\nOne.')

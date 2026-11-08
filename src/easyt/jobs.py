@@ -10,9 +10,9 @@ from typing import Literal
 from yt_dlp.utils import sanitize_filename
 
 from easyt import OUTPUTS_DIR, log
-from easyt.article import read_article
+from easyt.article import Article, read_article
 from easyt.gdrive import check_drive_sign_in, upload_to_gdrive
-from easyt.languages import host_language
+from easyt.languages import host_language, language_name
 from easyt.pipeline.article import Pipeline_article
 from easyt.pipeline.aterm import Pipeline_aterm
 from easyt.pipeline.standard import Pipeline
@@ -103,10 +103,20 @@ async def run_youtube(
     return title, await upload_to_gdrive(parent_dir)
 
 
-async def run_article(text: str) -> None:
-    """Read the article in `text` with its translation into the host's language, as HTML sent to
-    the chat. Its folder is named like a video's: by the day, its site and its title."""
+def article_to_translate(text: str) -> Article:
+    """The article in `text`, refused with ValueError as read_article() refuses one, or when it is
+    already in the host's language, which it would be translated into."""
     article = read_article(text)
+    if article.lang == host_language().split("-")[0]:  # zh for a host's zh-Hant
+        raise ValueError(f"This article is already in {language_name(article.lang)}")
+    return article
+
+
+async def run_article(text: str) -> Article:
+    """Read the article in `text` with its translation into the host's language, as HTML sent to
+    the chat, and return it. Its folder is named like a video's: by the day, its site and its
+    title."""
+    article = article_to_translate(text)
     target_lang = host_language()
     date = datetime.now().astimezone().strftime("%Y-%m-%d")
     title = _cut(sanitize_filename(article.title), 150) or "article"
@@ -115,8 +125,9 @@ async def run_article(text: str) -> None:
     outdir.mkdir(parents=True, exist_ok=True)
     # Kept, so that `easyt article` can run it again.
     (outdir / "article.md").write_text(text, encoding="utf-8")
-    with span(article.title, f"en → {target_lang}"):
+    with span(article.title, f"{article.lang} → {target_lang}"):
         await Pipeline_article(article, outdir / f"{title}.html", target_lang).run()
+    return article
 
 
 def _cut(text: str, size: int) -> str:

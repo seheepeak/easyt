@@ -31,8 +31,8 @@ from telegram.ext import (
 )
 
 from easyt import log, plugins
-from easyt.article import article_part, read_article
-from easyt.jobs import Mode, run_article, run_youtube
+from easyt.article import article_part
+from easyt.jobs import Mode, article_to_translate, run_article, run_youtube
 from easyt.utils.spans import ICONS, Span, current_span, duration, span
 from easyt.youtube import is_youtube_url, parse_youtube_url
 
@@ -273,8 +273,8 @@ async def _youtube(mode: Mode, url: str) -> str:
 
 
 async def _article(text: str) -> str:
-    await run_article(text)
-    return read_article(text).details.get("url", "")  # the pipeline has sent its HTML to the chat
+    article = await run_article(text)
+    return article.details.get("url", "")  # the pipeline has sent its HTML to the chat
 
 
 def build_app(token: str, chat_id: int) -> Application:
@@ -283,7 +283,7 @@ def build_app(token: str, chat_id: int) -> Application:
     chat = filters.Chat(chat_id) & filters.UpdateType.MESSAGE
     commands = COMMANDS | {name: plugin.bot_about for name, plugin in plugins.commands().items()}
     help_text = (
-        "Send a YouTube video or playlist URL to translate it, or an English article in Markdown "
+        "Send a YouTube video or playlist URL to translate it, or an article in Markdown "
         "to read it with its translation and terms: as a message, its front matter first and an "
         "<!-- EOF --> line last, or as a .md or .txt file when it is longer than a message holds.\n"
         + "\n".join(f"/{command} - {about}" for command, about in commands.items())
@@ -299,7 +299,7 @@ def build_app(token: str, chat_id: int) -> Application:
 
     async def add_article(request: Message, text: str) -> None:
         try:
-            title = read_article(text).title
+            title = article_to_translate(text).title
         except ValueError as e:
             await request.reply_text(str(e))
             return

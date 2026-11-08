@@ -187,6 +187,6 @@ async def test_run_accepts_an_init_without_api_key_source(fake_cli):
 @pytest.mark.live
 async def test_translation_on_a_live_claude_subscription(monkeypatch, source_sentences):
     monkeypatch.setenv("LLM_BACKEND", "claude-code")
-    result = await Translator("en", "ko").translate(source_sentences[:5])
+    result = await Translator("en", "ko", kind="subtitles").translate(source_sentences[:5])
     assert len(result) == 5
     assert all(item["target"] != item["source"] for item in result)

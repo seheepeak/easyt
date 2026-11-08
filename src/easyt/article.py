@@ -10,6 +10,8 @@ import yaml
 from markdown_it import MarkdownIt
 from markdown_it.tree import SyntaxTreeNode
 
+from easyt.languages import detect_language
+
 _FRONT_MATTER = re.compile(r"---\n(.*?)\n---[ \t]*(?:\n|\Z)", re.DOTALL)
 _EOF = "<!-- EOF -->"
 _MARKDOWN = MarkdownIt("commonmark").enable("table")
@@ -33,6 +35,7 @@ class Article:
     title: str  # its first h1
     details: dict[str, str]  # its front matter, such as site, author, published, url, description
     blocks: list[Block]
+    lang: str  # the language of its text, such as en, as detect_language() finds it
 
 
 def article_part(text: str) -> Literal["whole", "first", "last"] | None:
@@ -49,7 +52,8 @@ def article_part(text: str) -> Literal["whole", "first", "last"] | None:
 
 def read_article(text: str) -> Article:
     """The article in `text`, whose front matter and `<!-- EOF -->` line a file may leave out.
-    Raises ValueError if the front matter does not read as YAML, or there is no text."""
+    Raises ValueError if the front matter does not read as YAML, there is no text, or what language
+    it is in is not clear."""
     text = _normalized(text).removesuffix(_EOF)
     details = {}
     if found := _FRONT_MATTER.match(text):
@@ -58,8 +62,10 @@ def read_article(text: str) -> Article:
     blocks = _blocks(text)
     if not any(b.prose for b in blocks):
         raise ValueError("This article has no text to read")
+    if not (lang := detect_language(" ".join(b.text for b in blocks if b.prose))):
+        raise ValueError("It is not clear what language this article is in")
     title = next((b.text for b in blocks if b.kind == "h1"), "")
-    return Article(title, details, blocks)
+    return Article(title, details, blocks, lang)
 
 
 def _normalized(text: str) -> str:

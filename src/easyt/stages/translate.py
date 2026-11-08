@@ -1,21 +1,28 @@
 import html
 from pathlib import Path
+from typing import Literal
 
 from easyt import log
 from easyt.backend import open_backend
 from easyt.languages import language_name
 from easyt.parser import XmlItemParser
-from easyt.prompts import load_prompt
+from easyt.prompts import load_prompt, load_text
 
 
 class Translator:
-    """Translates a chunk of sentences on LLM_BACKEND, with the prompt for their kind: a video's
-    subtitles, or `article.translate` for an article's sentences."""
+    """Translates a chunk of sentences on LLM_BACKEND with the `translate` prompt, told what kind
+    of text they are, a video's subtitles or an article's sentences, and given what it keeps for
+    the pair of languages, if anything."""
 
-    def __init__(self, source_lang: str, target_lang: str, prompt: str = "translate"):
+    def __init__(self, source_lang: str, target_lang: str, kind: Literal["subtitles", "article"]):
         self.backend = open_backend("Translation")
-        self.prompt = load_prompt(prompt).partial(
-            source_lang=language_name(source_lang), target_lang=language_name(target_lang)
+        # Kept by language: a target such as ko-KR or zh-Hant takes the notes for ko or zh.
+        notes = f"translate_pairs.{source_lang}.{target_lang.split('-')[0]}"
+        self.prompt = load_prompt("translate").partial(
+            source_lang=language_name(source_lang),
+            target_lang=language_name(target_lang),
+            kind_notes=load_text(f"translate_kinds.{kind}"),
+            pair_notes=load_text(notes, default=""),
         )
 
     async def translate(self, sents: list[str], cache_path: Path | None = None) -> list[dict]:

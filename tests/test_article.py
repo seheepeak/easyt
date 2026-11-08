@@ -165,11 +165,20 @@ def test_a_file_may_leave_out_the_front_matter_and_the_eof_line():
     [
         '---\nsite: "The Daily Paper"\n---\n\n![A chart.](https://example.com/chart.png)\n',
         '---\nsite: "The Daily Paper\n---\n\n# Title\n\nWords.\n',  # a quote left open
+        "# 2026\n\n38%\n",  # no language to tell
     ],
 )
-def test_an_article_of_no_text_or_of_broken_front_matter_is_refused(text):
+def test_an_article_of_no_text_of_broken_front_matter_or_of_no_clear_language_is_refused(text):
     with pytest.raises(ValueError):
         read_article(text)
+
+
+@pytest.mark.parametrize(
+    "text, lang",
+    [(ARTICLE, "en"), ("# 제목\n\n이 메모는 이번에 처음 알려졌다.", "ko")],
+)
+def test_an_article_knows_the_language_of_its_text(text, lang):
+    assert read_article(text).lang == lang
 
 
 def test_a_numbered_item_keeps_its_number():

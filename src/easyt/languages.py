@@ -1,7 +1,11 @@
-"""Language codes and the names prompts give them, from CLDR through Babel."""
+"""Language codes and the names prompts give them, from CLDR through Babel, and the language a
+text is in, as Lingua finds it."""
+
+from functools import cache
 
 from babel import Locale, UnknownLocaleError
 from babel.core import default_locale, get_locale_identifier
+from lingua import LanguageDetector, LanguageDetectorBuilder
 
 
 def host_language() -> str:
@@ -30,3 +34,16 @@ def language_name(code: str) -> str:
         return Locale.parse(code.replace("-", "_")).english_name or code
     except (UnknownLocaleError, ValueError):
         return code
+
+
+def detect_language(text: str) -> str | None:
+    """The code of the language `text` is in, such as en or ko, as Lingua finds it; None when it
+    cannot tell, as for a text of numbers alone."""
+    language = _detector().detect_language_of(text)
+    return language.iso_code_639_1.name.lower() if language else None
+
+
+@cache
+def _detector() -> LanguageDetector:
+    """Made once and only when needed: its models take about 140 MB once loaded."""
+    return LanguageDetectorBuilder.from_all_languages().build()

@@ -26,10 +26,14 @@ class Prompt:
 
 @cache
 def _prompts(directory: Path) -> dict:
-    """The tables of every `*_prompts.toml` file in `directory`, merged."""
+    """The tables of every `*_prompts.toml` file in `directory`, merged. A table that two files
+    hold raises ValueError, as the merge would keep only one of them."""
     prompts = {}
     for path in directory.glob("*.toml"):
-        prompts |= tomllib.loads(path.read_text(encoding="utf-8"))
+        tables = tomllib.loads(path.read_text(encoding="utf-8"))
+        if shared := prompts.keys() & tables.keys():
+            raise ValueError(f"{path.name} and another prompts file both hold {', '.join(shared)}")
+        prompts |= tables
     return prompts
 
 
@@ -38,3 +42,14 @@ def load_prompt(name: str, directory: Path = Path(__file__).parent) -> Prompt:
     `directory`: easyt's own, or a plugin's."""
     messages = reduce(getitem, name.split("."), _prompts(directory))
     return Prompt(tuple(message["content"] for message in messages))
+
+
+def load_text(name: str, default: str | None = None) -> str:
+    """The text at the dotted `name`, such as `translate_pairs.en.ko`, from easyt's own
+    `*_prompts.toml` files; `default` where there is none, or KeyError without one."""
+    try:
+        return reduce(getitem, name.split("."), _prompts(Path(__file__).parent))
+    except KeyError:
+        if default is None:
+            raise
+        return default

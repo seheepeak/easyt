@@ -1,4 +1,4 @@
-"""An English article read with its translation, as HTML: a sentence shows its translation when it
+"""An article read with its translation, as HTML: a sentence shows its translation when it
 is clicked, and under each paragraph a box opens on the advanced terms it uses."""
 
 import base64
@@ -185,7 +185,7 @@ class ArticleTerm(BaseModel):
     word: str
     pronunciation: str = ""
     definition: str
-    examples: str | None = None  # English lines, each followed by its translation
+    examples: str | None = None  # lines in the article's language, each followed by its translation
     etymology: str | None = None
 
 
@@ -250,10 +250,10 @@ class Pipeline_article:
         self.html_path = html_path
         self.outdir = html_path.parent
         self.target_lang = target_lang
-        self.translator = Translator("en", target_lang, prompt="article.translate")
+        self.translator = Translator(article.lang, target_lang, kind="article")
         self.backend = open_backend("Term extraction")
         self.terms_prompt = load_prompt("article.terms").partial(
-            target_lang=language_name(target_lang)
+            source_lang=language_name(article.lang), target_lang=language_name(target_lang)
         )
 
     async def run(self) -> Path:
@@ -347,7 +347,7 @@ def generate_html(
     """The page of `article`: the sentences of each block of prose with their translations, and
     under a block the terms listed for it, the blocks of prose counted from 1; images and tables
     as they are."""
-    doc = document(title=article.title, lang="en")
+    doc = document(title=article.title, lang=article.lang)
     with doc.head:
         page_head()
         style(util.raw(_CSS))

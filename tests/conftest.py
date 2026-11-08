@@ -21,6 +21,13 @@ def _code_defaults(monkeypatch):
         monkeypatch.delenv(name, raising=False)
 
 
+@pytest.fixture(autouse=True)
+def _korean_host(monkeypatch):
+    """A host whose language is Korean, whatever the machine's locale: an English article is one
+    to translate, and a Korean one is refused."""
+    monkeypatch.setenv("LC_MESSAGES", "ko_KR.UTF-8")  # read before LANGUAGE, LC_ALL and LANG
+
+
 @pytest.fixture
 def source_sentences():
     with (fixtures_dir / "source_sentences.json").open("r") as f:

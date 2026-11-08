@@ -43,7 +43,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     ):
         command = sub.add_parser(name, parents=[verbosity], help=about, description=about)
         command.add_argument("url", metavar="URL", help=URL_HELP)
-    about = "An English article with its translation and advanced terms, as HTML"
+    about = "An article with its translation and advanced terms, as HTML"
     command = sub.add_parser("article", parents=[verbosity], help=about, description=about)
     command.add_argument(
         "file",
@@ -94,15 +94,14 @@ async def run(args: argparse.Namespace) -> None:
         return
 
     if args.command == "article":
-        from easyt.article import read_article
-        from easyt.jobs import run_article
+        from easyt.jobs import article_to_translate, run_article
 
         if not args.file.is_file():
             sys.exit(f"No such file: {args.file}")
         # utf-8-sig drops the byte order mark a Windows editor may write first.
         text = args.file.read_text(encoding="utf-8-sig")
         try:
-            read_article(text)
+            article_to_translate(text)
         except ValueError as e:
             sys.exit(f"{args.file}: {e}")
         await run_article(text)

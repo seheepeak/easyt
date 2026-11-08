@@ -172,6 +172,6 @@ async def test_run_refuses_anything_but_a_chatgpt_login(fake_codex, account_type
 @pytest.mark.live
 async def test_translation_on_a_live_chatgpt_subscription(monkeypatch, source_sentences):
     monkeypatch.setenv("LLM_BACKEND", "codex")
-    result = await Translator("en", "ko").translate(source_sentences[:5])
+    result = await Translator("en", "ko", kind="subtitles").translate(source_sentences[:5])
     assert len(result) == 5
     assert all(item["target"] != item["source"] for item in result)

@@ -20,7 +20,7 @@ def translator_answering(fake_backend):
             return answers.pop(0)
 
         sessions = fake_backend(easyt.stages.translate, run)
-        return Translator("en", "es"), sessions
+        return Translator("en", "es", kind="subtitles"), sessions
 
     return make
 
@@ -57,7 +57,24 @@ async def test_a_cache_without_segments_is_translated_again(translator_answering
 )
 def test_the_prompt_names_the_source_language(fake_backend, code, name):
     fake_backend(easyt.stages.translate, run=None)  # nothing is asked
-    assert Translator(code, "ko").prompt.partials["source_lang"] == name
+    assert Translator(code, "ko", kind="subtitles").prompt.partials["source_lang"] == name
+
+
+@pytest.mark.parametrize(
+    "kind, says",
+    [("subtitles", "the subtitles of a video"), ("article", "an article from the web")],
+)
+def test_the_prompt_says_what_kind_of_text_it_translates(fake_backend, kind, says):
+    fake_backend(easyt.stages.translate, run=None)  # nothing is asked
+    system, _ = Translator("en", "ko", kind=kind).prompt.format(input_text="")
+    assert says in system
+
+
+@pytest.mark.parametrize("target, has_notes", [("ko", True), ("ko-KR", True), ("ja", False)])
+def test_the_prompt_takes_the_notes_kept_for_its_pair_of_languages(fake_backend, target, has_notes):
+    fake_backend(easyt.stages.translate, run=None)  # nothing is asked
+    system, _ = Translator("en", target, kind="article").prompt.format(input_text="")
+    assert ("From English into Korean" in system) == has_notes
 
 
 async def test_a_text_comes_back_as_it_went_out_whatever_it_holds(fake_backend):
@@ -66,13 +83,15 @@ async def test_a_text_comes_back_as_it_went_out_whatever_it_holds(fake_backend):
 
     fake_backend(easyt.stages.translate, run)
     text = "price&regulation < 5 & rising"
-    assert await Translator("en", "ko").translate([text]) == [{"source": text, "target": text}]
+    assert await Translator("en", "ko", kind="subtitles").translate([text]) == [
+        {"source": text, "target": text}
+    ]
 
 
 @pytest.mark.live
 async def test_translation_on_the_api(monkeypatch, source_sentences):
     monkeypatch.setenv("LLM_BACKEND", "anthropic:claude-opus-5-5")
-    translator = Translator("en", "ko")
+    translator = Translator("en", "ko", kind="subtitles")
     assert isinstance(translator.backend, PydanticAIBackend)
     result = await translator.translate(source_sentences[:5])
     assert len(result) == 5

@@ -84,10 +84,7 @@ class Pipeline(Pipeline_base):
             skip_exsisting,
         )
         self.target_lang = target_lang
-        self.translator = Translator(
-            source_lang=source_lang,
-            target_lang=target_lang,
-        )
+        self.translator = Translator(source_lang, target_lang, kind="subtitles")
         # Made now, so a bad MAX_LINE_LEN fails before any model call.
         self.line_breaker = LLMLineBreaker(target_lang)
         self.transcript_only = transcript_only
