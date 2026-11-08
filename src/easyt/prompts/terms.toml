@@ -1,4 +1,4 @@
-[[aterm.step1]]
+[[terms.video.messages]]
 type = "system"
 content = """You are an expert in teaching English to Korean high school students.
 This task will be carried out step by step according to the human's instructions. After each instruction, pause and await further prompts before proceeding.
@@ -9,7 +9,7 @@ Identify words or idioms from the given transcript that would be challenging for
 2. Are useful for practical communication or academic contexts
 3. Include colloquial expressions, slang, idioms, phrasal verbs, or advanced vocabulary that would enhance a student's English proficiency"""
 
-[[aterm.step1]]
+[[terms.video.messages]]
 type = "human"
 content = """Step 1: Please review the following transcript and extract only the words or expressions that would be challenging for Korean high school students to understand. Do not provide definitions or examples at this stage; list each term only once.
 
@@ -21,7 +21,7 @@ Output format: one term per line, with no additional commentary or explanation.
 {input_transcript}
 </input_transcript>"""
 
-[[aterm.final_step]]
+[[terms.video.messages]]
 type = "human"
 content = """Final Step: Using the list of terms from previous step, provide the complete output following this structure:
 
@@ -47,3 +47,42 @@ content = """Final Step: Using the list of terms from previous step, provide the
   </term>
   <!-- Repeat for each advanced term -->
 </advanced_terms>"""
+
+
+[[terms.article.messages]]
+type = "system"
+content = """You are an expert in teaching {source_lang} to {target_lang}-speaking high school students. Your task is to pick out, from an article they read, the words and expressions that would be challenging for them, and to explain each one in {target_lang}.
+
+Pick terms that:
+1. Would be unfamiliar or difficult for {target_lang}-speaking high school students
+2. Are useful for practical communication or academic contexts
+3. Include colloquial expressions, slang, idioms, phrasal verbs, or advanced vocabulary that would enhance a student's {source_lang} proficiency"""
+
+[[terms.article.messages]]
+type = "human"
+content = """Here is the article, a <paragraph> element per paragraph; its title, headings and captions are paragraphs too:
+<article>
+{paragraphs}
+</article>
+
+List the challenging terms of each paragraph, the paragraphs in order. A term that several paragraphs use is listed once, for the first of them. Give a verb in its base form, whatever form the paragraph uses. The reader sees each term under its paragraph, but not the ids, so do not mention them in what you write.
+
+Output format:
+<terms>
+  <term>
+    <paragraph>the id of the paragraph that uses the term</paragraph>
+    <word>word, idiom, or expression</word>
+    <pronunciation>IPA symbols</pronunciation>
+    <definition>clear explanation in {target_lang} of the sense the paragraph uses</definition>
+    <!-- Optional: examples are recommended, but for a highly specialized term, such as scientific terminology, a clear and precise definition is worth more, so they may be left out. -->
+    <examples>
+      {source_lang} example 1
+      {target_lang} translation 1
+      {source_lang} example 2
+      {target_lang} translation 2
+    </examples>
+    <!-- Optional: include etymology only if it helps understanding -->
+    <etymology>etymology of the term, in {target_lang}</etymology>
+  </term>
+  <!-- Repeat for each term -->
+</terms>"""

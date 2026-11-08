@@ -252,7 +252,7 @@ class Pipeline_article:
         self.target_lang = target_lang
         self.translator = Translator(article.lang, target_lang, kind="article")
         self.backend = open_backend("Term extraction")
-        self.terms_prompt = load_prompt("article.terms").partial(
+        self.terms_prompt = load_prompt("terms.article").partial(
             source_lang=language_name(article.lang), target_lang=language_name(target_lang)
         )
 

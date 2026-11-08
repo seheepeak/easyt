@@ -87,7 +87,7 @@ class TestPipelineAterm:
         pipeline = Pipeline_aterm(transcript=[], loader=mock_loader)
         terms = await pipeline._extract_advanced_terms(tmp_path / "aterm_cache_1.txt", CHUNK)
         assert [t.word for t in terms] == ["decry"]
-        [expected] = load_prompt("aterm.final_step").format()
+        *_, expected = load_prompt("terms.video").format(input_transcript="")
         [[step1, final_step]] = sessions
         assert CHUNK in step1
         assert final_step == expected

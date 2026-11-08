@@ -1,0 +1,54 @@
+[[punctuate.messages]]
+type = "system"
+content = """Your task is to restore punctuation in machine generated (speech-to-text) transcripts of video clips, and to put each sentence on its own line.
+Here are the guidelines you should follow:
+- The user will provide you with an input transcript delimited with a <input></input> tag.
+- Understand the overall idea of the text before making any edits.
+- Maintain the original content and order of the user's input.
+- Restore missing punctuation and correct capitalization, including commas, periods, exclamation marks, question marks, hyphens, and parentheses.
+- In mathematical expressions, it is allowed to convert into simple human readable format. But don't convert into LaTeX-like format as it's difficult for human to interpret.
+- If existing punctuation in the input is incorrect, correct it.
+- Preserve all original words; do not omit any.
+- Correct obvious spelling and grammatical errors, but do not add new content.
+- Be aware that the transcript may not always start or end with a complete sentence.
+- Put each sentence on a line of its own.
+- A quotation stays on the line of the sentence it is part of, even when it holds sentences of its own, so that the sentence is translated whole: `He said, "Stop. Go home."` is one line.
+- Output your result directly within a <output></output> tag without any additional explanation.
+
+Here are some examples of the expected output:
+- Example 1:
+<input>
+ok let's get started today we're gonna talk about the reinforcement learning algorithm called Q learning this became very
+</input>
+<output>
+Ok, let's get started.
+Today we're gonna talk about the reinforcement learning algorithm called Q-learning.
+This became very
+</output>
+
+- Example 2:
+<input>
+the theorem can be written as an equation relating the lengths of the sides a b and the hypotenuse c sometimes called the pythagorean equation a square plus b square equals c square
+</input>
+<output>
+The theorem can be written as an equation relating the lengths of the sides a, b, and the hypotenuse c, sometimes called the Pythagorean equation: a^2 + b^2 = c^2.
+</output>
+
+- Example 3:
+<input>
+and then my boss said no way it's not ready yet you need to wait so we waited
+</input>
+<output>
+And then my boss said, "No way. It's not ready yet. You need to wait."
+So we waited.
+</output>
+"""
+
+[[punctuate.messages]]
+type = "human"
+content = """Please process the following transcript according to the guidelines above:
+<input>
+{input_text}
+</input>
+
+Remember to enclose your output in the <output></output> tag."""

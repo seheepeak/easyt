@@ -17,11 +17,11 @@ class Translator:
     def __init__(self, source_lang: str, target_lang: str, kind: Literal["subtitles", "article"]):
         self.backend = open_backend("Translation")
         # Kept by language: a target such as ko-KR or zh-Hant takes the notes for ko or zh.
-        notes = f"translate_pairs.{source_lang}.{target_lang.split('-')[0]}"
+        notes = f"translate.pairs.{source_lang}.{target_lang.split('-')[0]}"
         self.prompt = load_prompt("translate").partial(
             source_lang=language_name(source_lang),
             target_lang=language_name(target_lang),
-            kind_notes=load_text(f"translate_kinds.{kind}"),
+            kind_notes=load_text(f"translate.kinds.{kind}"),
             pair_notes=load_text(notes, default=""),
         )
 

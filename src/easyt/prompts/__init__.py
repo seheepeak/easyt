@@ -1,16 +1,16 @@
-"""Each stage's prompt, kept in a `*_prompts.toml` file as an array of tables, one per message."""
+"""The LLM prompts, a TOML file per stage, named by the first part of a prompt's name."""
 
 import tomllib
 from dataclasses import dataclass, field, replace
-from functools import cache, reduce
+from functools import reduce
 from operator import getitem
 from pathlib import Path
 
 
 @dataclass(frozen=True)
 class Prompt:
-    """A prompt's messages in order, the system message first if it has one, each a `str.format`
-    template, so a literal brace is doubled."""
+    """A prompt's messages in order, the system message first, each a `str.format` template, so a
+    literal brace is doubled."""
 
     templates: tuple[str, ...]
     partials: dict[str, str] = field(default_factory=dict)
@@ -24,31 +24,24 @@ class Prompt:
         return [template.format(**{**self.partials, **values}) for template in self.templates]
 
 
-@cache
-def _prompts(directory: Path) -> dict:
-    """The tables of every `*_prompts.toml` file in `directory`, merged. A table that two files
-    hold raises ValueError, as the merge would keep only one of them."""
-    prompts = {}
-    for path in directory.glob("*.toml"):
-        tables = tomllib.loads(path.read_text(encoding="utf-8"))
-        if shared := prompts.keys() & tables.keys():
-            raise ValueError(f"{path.name} and another prompts file both hold {', '.join(shared)}")
-        prompts |= tables
-    return prompts
+def _find(name: str, directory: Path):
+    """What the dotted `name` holds in the file of `directory` its first part names."""
+    keys = name.split(".")
+    tables = tomllib.loads((directory / f"{keys[0]}.toml").read_text(encoding="utf-8"))
+    return reduce(getitem, keys, tables)
 
 
 def load_prompt(name: str, directory: Path = Path(__file__).parent) -> Prompt:
-    """The prompt at the dotted `name`, such as `aterm.step1`, from the `*_prompts.toml` files in
-    `directory`: easyt's own, or a plugin's."""
-    messages = reduce(getitem, name.split("."), _prompts(directory))
-    return Prompt(tuple(message["content"] for message in messages))
+    """The prompt at the dotted `name`, such as `terms.article`, from `directory`: easyt's own, or
+    a plugin's."""
+    return Prompt(tuple(message["content"] for message in _find(name, directory)["messages"]))
 
 
 def load_text(name: str, default: str | None = None) -> str:
-    """The text at the dotted `name`, such as `translate_pairs.en.ko`, from easyt's own
-    `*_prompts.toml` files; `default` where there is none, or KeyError without one."""
+    """The text at the dotted `name`, such as `translate.pairs.en.ko`, from easyt's own prompts;
+    `default` where there is none, or KeyError without one."""
     try:
-        return reduce(getitem, name.split("."), _prompts(Path(__file__).parent))
+        return _find(name, Path(__file__).parent)
     except KeyError:
         if default is None:
             raise

@@ -1,12 +1,12 @@
 """How the prompts are read from their TOML files."""
 
-import pytest
-
 from easyt.prompts import load_prompt
 
 
-def test_a_table_two_prompt_files_hold_is_refused_rather_than_one_kept(tmp_path):
-    (tmp_path / "a_prompts.toml").write_text('[[greet]]\ntype = "system"\ncontent = "Hi"\n')
-    (tmp_path / "b_prompts.toml").write_text('[[greet]]\ntype = "system"\ncontent = "Hello"\n')
-    with pytest.raises(ValueError, match="both hold greet"):
-        load_prompt("greet", tmp_path)
+def test_a_prompt_is_in_the_file_the_first_part_of_its_name_names(tmp_path):
+    (tmp_path / "greet.toml").write_text(
+        '[[greet.messages]]\ntype = "system"\ncontent = "Hi {name}"\n\n'
+        '[[greet.formal.messages]]\ntype = "system"\ncontent = "Good day"\n'
+    )
+    assert load_prompt("greet", tmp_path).format(name="Ann") == ["Hi Ann"]
+    assert load_prompt("greet.formal", tmp_path).format() == ["Good day"]

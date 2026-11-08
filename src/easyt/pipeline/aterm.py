@@ -102,10 +102,9 @@ class Pipeline_aterm(Pipeline_base):
         # A cache without terms, such as one an empty answer left, is asked again.
         if not parser.feed(cached):
             parser = _term_parser()
-            system, step1 = load_prompt("aterm.step1").format(
+            system, step1, final_step = load_prompt("terms.video").format(
                 input_transcript=f"...\n{chunk.strip()}\n..."
             )
-            [final_step] = load_prompt("aterm.final_step").format()
             async with self.backend.session(system) as session:
                 # The terms step 1 lists stay in the history for the final step to define.
                 await session.ask(step1)
