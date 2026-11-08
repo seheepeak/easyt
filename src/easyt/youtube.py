@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+import srt
 import yt_dlp
 
 from easyt import log
@@ -109,22 +110,16 @@ def _download_progress(status: dict) -> None:
         s.update(100 * status.get("downloaded_bytes", 0) / total)
 
 
-def _json3_cues(track: dict) -> list[dict]:
-    """A json3 caption track as subtitles, one per cue: the track's own segmentation."""
-    cues = []
-    for event in track.get("events", []):
-        segs = event.get("segs")
-        if not segs:
-            continue
-        if text := "".join(s.get("utf8", "") for s in segs).strip():
-            cues.append(
-                {
-                    "text": text,
-                    "start": event.get("tStartMs", 0) / 1000,
-                    "duration": event.get("dDurationMs", 0) / 1000,
-                }
-            )
-    return cues
+def _srt_cues(path: Path) -> list[dict]:
+    """A caption track's SRT file as subtitles, one per cue: the track's own segmentation."""
+    return [
+        {
+            "text": s.content,
+            "start": s.start.total_seconds(),
+            "duration": (s.end - s.start).total_seconds(),
+        }
+        for s in srt.parse(path.read_text(encoding="utf-8"))
+    ]
 
 
 class Loader:
@@ -167,6 +162,11 @@ class Loader:
     def description(self):
         return self.info_dict.get("description", None)
 
+    @property
+    def captions_path(self) -> Path:
+        """The caption track as YouTube gave it, whose times overlap where `load()`'s do not."""
+        return self.outdir / "original_transcript.srt"
+
     def load(self, transcript_only: bool = False) -> tuple[Path | None, list[dict] | None]:
         with span("Transcript") as s:
             transcript = self._download_transcript()
@@ -185,20 +185,13 @@ class Loader:
             s.result = f"{video_path.stat().st_size / 1e6:.0f} MB"
         return video_path, transcript
 
-    def original_captions(self) -> list[dict]:
-        """The captions as YouTube gave them, whose times overlap where `load()`'s do not."""
-        return json.loads((self.outdir / "original_transcript.json").read_text(encoding="utf-8"))
-
     def _download_transcript(self) -> list[dict] | None:
         # check if the transcript is already downloaded
-        orginal_transcript_path = self.outdir / "original_transcript.json"
-        if orginal_transcript_path.exists() and self.skip_exsisting:
-            return json.loads(orginal_transcript_path.read_text(encoding="utf-8"))
+        if self.captions_path.exists() and self.skip_exsisting:
+            return _srt_cues(self.captions_path)
         if self.track is None:
             return None
 
-        # json3 rather than VTT: its cues do not repeat each other's text, so
-        # nothing has to be deduplicated afterwards.
         ydl_opts = {
             "skip_download": True,
             "quiet": True,
@@ -207,7 +200,7 @@ class Loader:
             "writesubtitles": True,
             "writeautomaticsub": True,
             "subtitleslangs": [self.track],
-            "subtitlesformat": "json3",
+            "subtitlesformat": "srt",
             "outtmpl": str(self.outdir / "original_transcript.%(ext)s"),
         }
         # Downloaded from the info the track was picked from. Extracting again
@@ -222,12 +215,8 @@ class Loader:
         kind = "manual" if track in (info.get("subtitles") or {}) else "auto-generated"
         log.info(f"Transcript: {track} ({kind})")
 
-        raw = json.loads(Path(data["filepath"]).read_text(encoding="utf-8"))
-        json_subs = _json3_cues(raw)
-        orginal_transcript_path.write_text(
-            json.dumps(json_subs, ensure_ascii=False, indent=4), encoding="utf-8"
-        )
-        return json_subs
+        Path(data["filepath"]).replace(self.captions_path)
+        return _srt_cues(self.captions_path)
 
     def _validate_subtitles(self, subtitles: list[dict]) -> list[dict]:
         """Validate subtitles content and delete line breaks

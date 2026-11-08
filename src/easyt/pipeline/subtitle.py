@@ -1,5 +1,6 @@
 import json
 import re
+import shutil
 from datetime import timedelta
 from functools import partial
 from itertools import batched
@@ -65,21 +66,6 @@ async def _subtitles(translated: list[dict], line_breaker: LLMLineBreaker) -> li
     return subtitles
 
 
-def _captions_srt(captions: list[dict]) -> str:
-    """Where generated captions overlap, two lines stay up at once, which is easier to read."""
-    return srt.compose(
-        [
-            srt.Subtitle(
-                i,
-                timedelta(seconds=c["start"]),
-                timedelta(seconds=c["start"] + c["duration"]),
-                c["text"],
-            )
-            for i, c in enumerate(captions, 1)
-        ]
-    )
-
-
 class Pipeline_subtitle(Pipeline_base):
     def __init__(
         self,
@@ -130,14 +116,15 @@ class Pipeline_subtitle(Pipeline_base):
             )
             s.result = f"{len(target_lang_results)} sentences"
 
-        srt_path = self.loader.video_path.with_suffix(f".{self.target_lang}.srt")
+        # No language in the name, so that a player picks this one by default.
+        srt_path = self.loader.video_path.with_suffix(".srt")
         await do_sent_break(srt_path, target_lang_results, self.line_breaker)
         if self.source_lang == self.target_lang:
             return [srt_path]
 
-        # To check what the video says: YouTube's captions, not the transcript cut for timing.
+        # To check what the video says: YouTube's own file, whose overlapping lines stay up longer.
         captions_path = self.loader.video_path.with_suffix(f".{self.source_lang}.srt")
-        captions_path.write_text(_captions_srt(self.loader.original_captions()), encoding="utf-8")
+        shutil.copy(self.loader.captions_path, captions_path)
         return [srt_path, captions_path]
 
     async def _translate(self, punct_results: list[dict]) -> list[dict]:

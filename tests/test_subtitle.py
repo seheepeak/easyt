@@ -143,6 +143,12 @@ async def test_texts_are_broken_into_lines_ten_a_call_at_once(fake_backend, monk
     assert calls == 3 and most == 2
 
 
+CAPTIONS = (
+    "1\n00:00:01,000 --> 00:00:04,500\nhola\n\n"  # it runs into the next
+    "2\n00:00:03,000 --> 00:00:05,000\nmucho gusto\n\n"
+)
+
+
 async def _whole_run(fake_backend, monkeypatch, tmp_path, target_lang):
     """The files a run makes of a Spanish video of two sentences."""
 
@@ -155,14 +161,10 @@ async def _whole_run(fake_backend, monkeypatch, tmp_path, target_lang):
         {"text": "hola", "start": 1.0, "duration": 2.0},
         {"text": "mucho gusto", "start": 3.0, "duration": 2.0},
     ]
-    captions = [
-        {"text": "hola", "start": 1.0, "duration": 3.5},  # it runs into the next
-        # Long enough that line breaking would ask the model about it.
-        {"text": "mucho gusto de conocerte por fin aqui", "start": 3.0, "duration": 2.0},
-        {"text": "[Music]", "start": 5.0, "duration": 1.0},
-    ]
+    captions_path = tmp_path / "original_transcript.srt"
+    captions_path.write_text(CAPTIONS, encoding="utf-8")
     loader = SimpleNamespace(
-        outdir=tmp_path, video_path=tmp_path / "video.mp4", original_captions=lambda: captions
+        outdir=tmp_path, video_path=tmp_path / "video.mp4", captions_path=captions_path
     )
     pipeline = Pipeline_subtitle(transcript, loader, source_lang="es", target_lang=target_lang)
 
@@ -178,14 +180,9 @@ async def test_the_captions_are_saved_as_they_came_beside_the_translation(
 ):
     paths = await _whole_run(fake_backend, monkeypatch, tmp_path, "en")
 
-    assert [path.name for path in paths] == ["video.en.srt", "video.es.srt"]
-    translation, captions = (list(srt.parse(path.read_text())) for path in paths)
-    assert [s.content for s in translation] == ["Hello.", "Nice to meet you."]
-    assert [(s.content, s.start.total_seconds(), s.end.total_seconds()) for s in captions] == [
-        ("hola", 1.0, 4.5),
-        ("mucho gusto de conocerte por fin aqui", 3.0, 5.0),
-        ("[Music]", 5.0, 6.0),
-    ]
+    assert [path.name for path in paths] == ["video.srt", "video.es.srt"]
+    assert [s.content for s in srt.parse(paths[0].read_text())] == ["Hello.", "Nice to meet you."]
+    assert paths[1].read_text() == CAPTIONS
 
 
 async def test_a_video_already_in_the_target_language_gets_one_srt(
@@ -193,5 +190,5 @@ async def test_a_video_already_in_the_target_language_gets_one_srt(
 ):
     paths = await _whole_run(fake_backend, monkeypatch, tmp_path, "es")
 
-    assert [path.name for path in paths] == ["video.es.srt"]
+    assert [path.name for path in paths] == ["video.srt"]
     assert [s.content for s in srt.parse(paths[0].read_text())] == ["Hola.", "Mucho gusto."]

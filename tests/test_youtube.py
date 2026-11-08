@@ -1,11 +1,9 @@
 """Which video or playlist a YouTube URL names, which caption track the Loader asks YouTube for,
 and how it reads it."""
 
-import json
-
 import pytest
 
-from easyt.youtube import Loader, _json3_cues, _original_track, parse_youtube_url
+from easyt.youtube import Loader, _original_track, _srt_cues, parse_youtube_url
 
 
 def _audio(lang: str | None, preference: int = -1) -> dict:
@@ -93,38 +91,32 @@ def test_without_a_language_several_other_tracks_are_not_guessed_between():
     assert _original_track({"subtitles": {"de": _track("de"), "fr": _track("fr")}}) is None
 
 
-def test_a_json3_track_becomes_one_subtitle_per_cue():
-    track = {
-        "events": [
-            {"tStartMs": 0, "dDurationMs": 2500},  # the caption window, with no text
-            {
-                "tStartMs": 100,
-                "dDurationMs": 2400,
-                "segs": [{"utf8": "Hello"}, {"utf8": " there", "tOffsetMs": 400}],
-            },
-            {"tStartMs": 2500, "dDurationMs": 10, "aAppend": 1, "segs": [{"utf8": "\n"}]},
-            {"tStartMs": 2500, "dDurationMs": 3000, "segs": [{"utf8": "  and welcome\nback "}]},
-        ]
-    }
-    assert _json3_cues(track) == [
+def test_an_srt_track_becomes_one_subtitle_per_cue(tmp_path):
+    path = tmp_path / "track.srt"
+    path.write_text(
+        "1\n00:00:00,100 --> 00:00:02,500\nHello there\n\n"
+        "2\n00:00:02,500 --> 00:00:05,500\nand welcome\nback\n\n",
+        encoding="utf-8",
+    )
+    assert _srt_cues(path) == [
         {"text": "Hello there", "start": 0.1, "duration": 2.4},
         {"text": "and welcome\nback", "start": 2.5, "duration": 3.0},
     ]
 
 
-def test_the_original_captions_keep_the_overlaps_the_transcript_loses(tmp_path):
-    captions = [
-        {"text": "one", "start": 0.0, "duration": 3.0},
-        {"text": "two", "start": 1.0, "duration": 3.0},
-    ]
-    (tmp_path / "original_transcript.json").write_text(json.dumps(captions), encoding="utf-8")
+def test_the_transcript_is_cut_and_flattened_while_the_file_keeps_the_captions(tmp_path):
+    captions = (
+        "1\n00:00:00,000 --> 00:00:03,000\none\nline\n\n"
+        "2\n00:00:01,000 --> 00:00:04,000\ntwo\n\n"
+    )
     loader = Loader.__new__(Loader)
     loader.outdir, loader.skip_exsisting = tmp_path, True
+    loader.captions_path.write_text(captions, encoding="utf-8")
 
     _, transcript = loader.load(transcript_only=True)
 
-    assert transcript[0]["duration"] == 1.0
-    assert loader.original_captions() == captions
+    assert transcript[0] == {"text": "one line", "start": 0.0, "duration": 1.0}
+    assert loader.captions_path.read_text(encoding="utf-8") == captions
 
 
 PLAYLIST = "https://www.youtube.com/playlist?list=PLx0sYbCqOb8TBPRdmBHs5Iftvv9TPboYG"

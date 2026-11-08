@@ -33,7 +33,7 @@ async def test_a_playlist_gets_a_copy_of_each_file_a_video_made(monkeypatch, tmp
     async def single(video_id, parent_dir, **options):
         outdir = parent_dir / video_id
         outdir.mkdir(parents=True)
-        paths = [outdir / name for name in ("v.mp4", "v.ko.srt", "v.en.srt")]
+        paths = [outdir / name for name in ("v.mp4", "v.srt", "v.en.srt")]
         for path in paths:
             path.touch()
         return None, paths[0], paths[1:]
@@ -48,7 +48,7 @@ async def test_a_playlist_gets_a_copy_of_each_file_a_video_made(monkeypatch, tmp
     await run_youtube("https://www.youtube.com/playlist?list=PLabc", "translate")
 
     copies = {path.name for path in (tmp_path / "List").iterdir() if path.is_file()}
-    assert copies == {"(1) v.mp4", "(1) v.ko.srt", "(1) v.en.srt"}
+    assert copies == {"(1) v.mp4", "(1) v.srt", "(1) v.en.srt"}
 
 
 async def test_an_article_is_kept_in_a_folder_named_by_the_day_its_site_and_title(
