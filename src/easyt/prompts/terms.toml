@@ -67,11 +67,14 @@ content = """Here is the article, a <paragraph> element per paragraph; its title
 
 List the challenging terms of each paragraph, the paragraphs in order. A term that several paragraphs use is listed once, for the first of them. Give a verb in its base form, whatever form the paragraph uses. The reader sees each term under its paragraph, but not the ids, so do not mention them in what you write.
 
+The page also marks each term in its paragraph, where it finds the term's quote: the term's words exactly as the paragraph writes them, from its first word to its last, with any words between. For "keep something on track" in "helped keep growth on track", the quote is "keep growth on track"; for "accuse A of B" in "accused him of lying", it is "accused him of".
+
 Output format:
 <terms>
   <term>
     <paragraph>the id of the paragraph that uses the term</paragraph>
     <word>word, idiom, or expression</word>
+    <quote>the term's words as the paragraph writes them</quote>
     <pronunciation>IPA symbols</pronunciation>
     <definition>clear explanation in {target_lang} of the sense the paragraph uses</definition>
     <!-- Optional: examples are recommended, but for a highly specialized term, such as scientific terminology, a clear and precise definition is worth more, so they may be left out. -->

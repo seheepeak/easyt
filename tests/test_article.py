@@ -11,7 +11,15 @@ import pytest
 import easyt.pipeline.article
 import easyt.stages.translate
 from easyt.article import Block, article_part, read_article
-from easyt.pipeline.article import Pipeline_article, chunk_texts, embed_images, split_sentences
+from easyt.pipeline.article import (
+    ArticleTerm,
+    Mark,
+    Pipeline_article,
+    chunk_texts,
+    embed_images,
+    place_terms,
+    split_sentences,
+)
 from easyt.stages.punctuate import SentSplitter
 
 ARTICLE = """---
@@ -51,12 +59,19 @@ TERMS = """<terms>
 <term>
 <paragraph>4</paragraph>
 <word>run deep</word>
+<quote>run deep</quote>
 <pronunciation>/rʌn diːp/</pronunciation>
 <definition>깊이 퍼져 있다</definition>
 <examples>
 Old rivalries run deep.
 오래된 경쟁심은 뿌리가 깊다.
 </examples>
+</term>
+<term>
+<paragraph>4</paragraph>
+<word>go bust</word>
+<quote>goes bust</quote>
+<definition>파산하다</definition>
 </term>
 </terms>"""
 
@@ -247,6 +262,51 @@ def test_paragraphs_are_chunked_evenly_and_whole():
     assert chunk_texts([100, 100], 4000) == [[0, 1]]
 
 
+def _term(word, quote):
+    return ArticleTerm(paragraph=1, word=word, quote=quote, definition="")
+
+
+def test_a_term_is_marked_where_its_quote_stands():
+    sentences = ["He fumed.", "He would accuse her of being among the leakers."]
+    term = _term("accuse A of B", "accuse her of")
+    assert place_terms(sentences, [term]) == [[], [Mark(9, 22, term)]]
+
+
+@pytest.mark.parametrize(
+    ("sentence", "quote", "marked"),
+    [
+        ("Recruited by the agency, she left.", "recruited", "[Recruited] by the agency, she left."),
+        (
+            "It helped keep growth on track.",
+            "keep growth\n on track",
+            "It helped [keep growth on track].",
+        ),
+        ("And it’s worth asking.", "it's worth", "And [it’s worth] asking."),  # ' for ’
+        ("Excited, she cited it.", "cited", "Excited, she [cited] it."),
+    ],
+)
+def test_a_quote_stands_as_whole_words_in_any_case_spacing_and_quotation_marks(
+    sentence, quote, marked
+):
+    [[mark]] = place_terms([sentence], [_term("unused", quote)])
+    assert (
+        f"{sentence[: mark.start]}[{sentence[mark.start : mark.end]}]{sentence[mark.end :]}"
+        == marked
+    )
+
+
+def test_a_term_whose_quote_is_not_found_is_marked_by_its_word_or_else_nowhere():
+    by_word, nowhere = _term("run deep", "ran deep"), _term("go bust", "went bust")
+    assert place_terms(["Prices run deep."], [by_word, nowhere]) == [[Mark(7, 15, by_word)]]
+
+
+def test_a_term_is_marked_where_it_first_stands_clear_of_the_terms_before_it():
+    phrase, word = _term("bite the bullet", "Bite the bullet"), _term("bite", "bite")
+    assert place_terms(["Bite the bullet, then bite again."], [phrase, word]) == [
+        [Mark(0, 15, phrase), Mark(22, 26, word)]
+    ]
+
+
 async def test_each_sentence_shows_its_translation_and_each_paragraph_its_terms(
     sat, sent, fake_backend, tmp_path
 ):
@@ -264,9 +324,28 @@ async def test_each_sentence_shows_its_translation_and_each_paragraph_its_terms(
         r'data-tr="KO We’ve been here before." for="\1">We’ve been here before.</label>',
         page,
     )
-    after = page.split("as a boom goes bust.</label>")[1]
-    assert re.match(r'\s*</p>\s*<details class="terms">\s*<summary>run deep</summary>', after)
-    assert '<p class="tr">오래된 경쟁심은 뿌리가 깊다.</p>' in page
+    # A term's words are a label inside the sentence's, whose checkbox shows the term's note.
+    marked = re.search(
+        r'for="t\d+">The damage could <label class="k" for="(k\d+)">run deep</label>, '
+        r'as a boom <label class="k" for="(k\d+)">goes bust</label>.</label>',
+        page,
+    )
+    assert marked
+    run_deep, go_bust = marked.groups()
+    assert (
+        f'<input class="kt" id="{run_deep}" type="checkbox"><span class="note">'
+        '<span class="word">run deep<span class="pron">/rʌn diːp/</span></span>'
+        "<span>깊이 퍼져 있다</span>"
+    ) in page
+    note = (
+        f'<input class="kt" id="{go_bust}" type="checkbox"><span class="note">'
+        '<span class="word">go bust</span><span>파산하다</span></span>'
+    )
+    assert re.match(
+        r'\s*</p>\s*<details class="terms">\s*<summary>run deep · go bust</summary>',
+        page.split(note)[1],
+    )
+    assert page.count('<span class="tr">오래된 경쟁심은 뿌리가 깊다.</span>') == 2  # note and box
     assert page.count("<details") == 1
     assert 'src="data:image/png;base64,UE5H"' in page  # the chart, inside the page
     assert "<th>Year</th>" in page and "<td>38%</td>" in page  # the table, as it is
@@ -315,4 +394,4 @@ async def test_a_term_that_two_chunks_list_is_explained_once_where_it_came_first
     page = html_path.read_text(encoding="utf-8")
     assert len(term_lists) > 1
     assert page.count("<summary>bust</summary>") == 1
-    assert "<p>1</p>" in page  # the definition the first chunk gave, under the title
+    assert "<span>1</span>" in page  # the first chunk's definition, under the title
