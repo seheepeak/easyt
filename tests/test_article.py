@@ -73,6 +73,12 @@ Old rivalries run deep.
 <quote>goes bust</quote>
 <definition>파산하다</definition>
 </term>
+<term>
+<paragraph>4</paragraph>
+<word>bust</word>
+<quote>bust</quote>
+<definition>파산</definition>
+</term>
 </terms>"""
 
 
@@ -269,7 +275,7 @@ def _term(word, quote):
 def test_a_term_is_marked_where_its_quote_stands():
     sentences = ["He fumed.", "He would accuse her of being among the leakers."]
     term = _term("accuse A of B", "accuse her of")
-    assert place_terms(sentences, [term]) == [[], [Mark(9, 22, term)]]
+    assert place_terms(sentences, [term]) == [[], [Mark(9, 22, [term])]]
 
 
 @pytest.mark.parametrize(
@@ -297,18 +303,21 @@ def test_a_quote_stands_as_whole_words_in_any_case_spacing_and_quotation_marks(
 
 def test_a_term_whose_quote_is_not_found_is_marked_by_its_word_or_else_nowhere():
     by_word, nowhere = _term("run deep", "ran deep"), _term("go bust", "went bust")
-    assert place_terms(["Prices run deep."], [by_word, nowhere]) == [[Mark(7, 15, by_word)]]
+    assert place_terms(["Prices run deep."], [by_word, nowhere]) == [[Mark(7, 15, [by_word])]]
 
 
-def test_a_term_is_marked_where_it_first_stands_clear_of_the_terms_before_it():
-    phrase, word = _term("bite the bullet", "Bite the bullet"), _term("bite", "bite")
-    assert place_terms(["Bite the bullet, then bite again."], [phrase, word]) == [
-        [Mark(0, 15, phrase), Mark(22, 26, word)]
+def test_terms_whose_words_overlap_share_one_mark_over_all_their_words_in_text_order():
+    sentence = "They ride the rising, unimpeded tide of markets."
+    unimpeded, markets = _term("unimpeded", "unimpeded"), _term("market", "markets")
+    idiom = _term("ride the tide", "ride the rising, unimpeded tide")
+    phrase = _term("of", "tide of")
+    assert place_terms([sentence], [unimpeded, markets, idiom, phrase]) == [
+        [Mark(5, 39, [idiom, unimpeded, phrase]), Mark(40, 47, [markets])]
     ]
 
 
 async def test_each_sentence_shows_its_translation_and_each_paragraph_its_terms(
-    sat, sent, fake_backend, tmp_path
+    sat, sent, fake_backend, tmp_path, caplog
 ):
     async def terms(system, prompt):
         return TERMS
@@ -324,7 +333,7 @@ async def test_each_sentence_shows_its_translation_and_each_paragraph_its_terms(
         r'data-tr="KO We’ve been here before." for="\1">We’ve been here before.</label>',
         page,
     )
-    # A term's words are a label inside the sentence's, whose checkbox shows the term's note.
+    # A term's words are a label inside the sentence's, whose checkbox shows the term's entry.
     marked = re.search(
         r'for="t\d+">The damage could <label class="k" for="(k\d+)">run deep</label>, '
         r'as a boom <label class="k" for="(k\d+)">goes bust</label>.</label>',
@@ -333,18 +342,21 @@ async def test_each_sentence_shows_its_translation_and_each_paragraph_its_terms(
     assert marked
     run_deep, go_bust = marked.groups()
     assert (
-        f'<input class="kt" id="{run_deep}" type="checkbox"><span class="note">'
+        f'<input class="kt" id="{run_deep}" type="checkbox"><span class="note"><span class="term">'
         '<span class="word">run deep<span class="pron">/rʌn diːp/</span></span>'
         "<span>깊이 퍼져 있다</span>"
     ) in page
+    # "bust" overlaps "goes bust", so they share its mark, whose note holds both entries.
     note = (
-        f'<input class="kt" id="{go_bust}" type="checkbox"><span class="note">'
-        '<span class="word">go bust</span><span>파산하다</span></span>'
+        f'<input class="kt" id="{go_bust}" type="checkbox"><span class="note"><span class="term">'
+        '<span class="word">go bust</span><span>파산하다</span></span><span class="term">'
+        '<span class="word">bust</span><span>파산</span></span></span>'
     )
     assert re.match(
-        r'\s*</p>\s*<details class="terms">\s*<summary>run deep · go bust</summary>',
+        r'\s*</p>\s*<details class="terms">\s*<summary>run deep · go bust · bust</summary>',
         page.split(note)[1],
     )
+    assert "Not found" not in caplog.text
     assert page.count('<span class="tr">오래된 경쟁심은 뿌리가 깊다.</span>') == 2  # note and box
     assert page.count("<details") == 1
     assert 'src="data:image/png;base64,UE5H"' in page  # the chart, inside the page

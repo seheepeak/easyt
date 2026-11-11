@@ -1,6 +1,6 @@
 """An article read with its translation, as HTML: a sentence shows its translation when it
-is clicked, an advanced term's words in it show the term's entry, and under each paragraph a
-box opens on the terms it uses."""
+is clicked, an advanced term's words in it show its entry, with those of the terms whose words
+overlap them, and under each paragraph a box opens on the terms it uses."""
 
 import base64
 import hashlib
@@ -120,10 +120,10 @@ th { border-bottom-width: 2px; }
 }
 .t { display: none; }
 .t:checked + .s::after { content: attr(data-tr); display: block; margin: .35em 0 .5em; }
-/* A term's words in the text, whose tap shows its note under their sentence. */
+/* Terms' words in the text, whose tap shows a note of their entries under their sentence. */
 .k { color: var(--accent); cursor: pointer; }
 .kt, .note { display: none; }
-.kt:checked + .note { display: block; margin: .35em 0 .5em; padding: .6em .9em; }
+.kt:checked + .note { display: block; margin: .35em 0 .5em; }
 /* Normal weight, as a note in a heading would take its bold. */
 .terms, .note {
   border: 1px solid var(--line); border-radius: 6px; background: var(--box);
@@ -131,9 +131,10 @@ th { border-bottom-width: 2px; }
 }
 .terms { margin: -.5em 0 1.5em; }
 .terms summary { padding: .45em .8em; color: var(--muted); cursor: pointer; }
-.term { padding: .6em .9em; border-top: 1px solid var(--line); }
-/* A term's entry, in the box and in its note: spans, as a note is part of a paragraph. */
-:where(.term, .note) > span { display: block; margin: .15em 0; }
+/* A term's entry, in the box and in a note: spans, as a note is part of a paragraph. */
+.term { display: block; padding: .6em .9em; border-top: 1px solid var(--line); }
+.note > .term:first-child { border-top: 0; }
+:where(.term) > span { display: block; margin: .15em 0; }
 .word { margin: 0 0 .2em; font-size: 1rem; font-weight: bold; }
 .pron { margin-left: .5em; color: var(--muted); font-weight: normal; }
 .ex, .ety { margin-top: .5em; }
@@ -351,36 +352,38 @@ _ANY_QUOTE = str.maketrans({c: f"[{shapes}]" for shapes in ("'‘’", '"“”'
 
 
 class Mark(NamedTuple):
-    """Where a term's words stand in a sentence."""
+    """Where terms' words stand in a sentence: one term's, or those of terms that overlap."""
 
     start: int
     end: int
-    term: ArticleTerm
+    terms: list[ArticleTerm]
 
 
 def place_terms(sentences: list[str], terms: list[ArticleTerm]) -> list[list[Mark]]:
     """Where `terms` stand in `sentences`, a paragraph's, as each sentence's marks in order: a
-    term where its quote first stands, or else its word, clear of the terms before it. One
-    found nowhere, as a quote not copied exactly, has no mark."""
+    term where its quote first stands, or else its word, in one mark with the terms whose words
+    it overlaps, in the order of the text. One found nowhere, as a quote not copied exactly, has
+    no mark."""
+    found = [
+        (at, t) for t in terms if (at := _find(t.quote, sentences) or _find(t.word, sentences))
+    ]
     marks: list[list[Mark]] = [[] for _ in sentences]
-    for term in terms:
-        for words in (term.quote, term.word):
-            if found := _find(words, sentences, marks):
-                i, start, end = found
-                marks[i].append(Mark(start, end, term))
-                break
-    return [sorted(sentence, key=lambda mark: mark.start) for sentence in marks]
+    for (i, start, end), term in sorted(found, key=lambda f: f[0]):
+        if marks[i] and start < (last := marks[i][-1]).end:
+            marks[i][-1] = Mark(last.start, max(last.end, end), [*last.terms, term])
+        else:
+            marks[i].append(Mark(start, end, [term]))
+    return marks
 
 
-def _find(words: str, sentences: list[str], marks: list[list[Mark]]) -> tuple[int, int, int] | None:
-    """The sentence and the span where `words` first stand clear of `marks`: as whole words,
-    whatever their case and spacing, and with any shape of quotation mark."""
+def _find(words: str, sentences: list[str]) -> tuple[int, int, int] | None:
+    """The sentence and the span where `words` first stand: as whole words, whatever their case
+    and spacing, and with any shape of quotation mark."""
     if not (pattern := r"\s+".join(re.escape(w).translate(_ANY_QUOTE) for w in words.split())):
         return None
     for i, sentence in enumerate(sentences):
-        for found in re.finditer(rf"(?<!\w){pattern}(?!\w)", sentence, re.IGNORECASE):
-            if all(found.end() <= m.start or m.end <= found.start() for m in marks[i]):
-                return i, found.start(), found.end()
+        if found := re.search(rf"(?<!\w){pattern}(?!\w)", sentence, re.IGNORECASE):
+            return i, found.start(), found.end()
     return None
 
 
@@ -418,7 +421,7 @@ def generate_html(
                 paragraph, pairs = next(numbered)
                 listed = terms.get(paragraph, [])
                 marks = place_terms([source for source, _ in pairs], listed)
-                marked = [mark.term for sentence in marks for mark in sentence]
+                marked = [term for sentence in marks for mark in sentence for term in mark.terms]
                 unmarked += [term.word for term in listed if term not in marked]
                 _text_block(block, pairs, marks, boxes)
                 if listed:
@@ -437,8 +440,8 @@ def _text_block(
     block: Block, pairs: list[tuple[str, str]], marks: list[list[Mark]], boxes: Iterator[int]
 ) -> None:
     """The block's sentences, each with a checkbox that its label, the sentence, ticks when tapped:
-    the CSS shows the translation of a ticked one where the page's script does not run. A term's
-    words are a label of their own inside the sentence's, whose checkbox shows the term's note
+    the CSS shows the translation of a ticked one where the page's script does not run. A mark's
+    words are a label of their own inside the sentence's, whose checkbox shows its terms' entries
     under the sentence, script or not: HTML does not allow a label inside a label, but has a tap
     on the inner one tick only its own checkbox."""
     # Not pretty-printed: dominate breaks the line before a tag such as a term's label, which
@@ -455,21 +458,24 @@ def _text_block(
                 input_(type="checkbox", id=box, cls="t")
                 with label(fr=box, cls="s", data_tr=target):
                     notes = _marked(source, marks[i], boxes)
-            for key, term in notes:
+            for key, terms in notes:
                 input_(type="checkbox", id=key, cls="kt")
                 with span(cls="note"):
-                    _entry(term)
+                    for term in terms:
+                        _entry(term)
 
 
-def _marked(text: str, marks: list[Mark], boxes: Iterator[int]) -> list[tuple[str, ArticleTerm]]:
-    """`text`, the words of each term in it a label of the term's own checkbox; returns the
+def _marked(
+    text: str, marks: list[Mark], boxes: Iterator[int]
+) -> list[tuple[str, list[ArticleTerm]]]:
+    """`text`, the words of each mark in it a label of the mark's own checkbox; returns the
     checkboxes' ids, with their terms."""
     notes, at = [], 0
-    for start, end, term in marks:
+    for start, end, terms in marks:
         key = f"k{next(boxes)}"
         util.text(text[at:start])
         label(text[start:end], fr=key, cls="k")
-        notes.append((key, term))
+        notes.append((key, terms))
         at = end
     util.text(text[at:])
     return notes
@@ -493,19 +499,19 @@ def _terms_box(terms: list[ArticleTerm]) -> None:
     with details(cls="terms"):
         summary(" · ".join(t.word for t in terms))
         for term in terms:
-            with div(cls="term"):
-                _entry(term)
+            _entry(term)
 
 
 def _entry(term: ArticleTerm) -> None:
-    """The term's word, pronunciation, definition, examples and etymology, in spans, as its note
+    """The term's word, pronunciation, definition, examples and etymology, in spans, as a note
     is part of a paragraph."""
-    with span(term.word, cls="word"):
-        if term.pronunciation:
-            span(term.pronunciation, cls="pron")
-    span(term.definition)
-    examples = [line.strip() for line in (term.examples or "").splitlines()]
-    for i, line in enumerate(filter(None, examples)):
-        span(line, cls="tr" if i % 2 else "ex")
-    if term.etymology:
-        span(term.etymology, cls="ety")
+    with span(cls="term"):
+        with span(term.word, cls="word"):
+            if term.pronunciation:
+                span(term.pronunciation, cls="pron")
+        span(term.definition)
+        examples = [line.strip() for line in (term.examples or "").splitlines()]
+        for i, line in enumerate(filter(None, examples)):
+            span(line, cls="tr" if i % 2 else "ex")
+        if term.etymology:
+            span(term.etymology, cls="ety")
