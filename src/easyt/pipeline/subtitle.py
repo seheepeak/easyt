@@ -1,6 +1,5 @@
 import json
 import re
-import shutil
 from datetime import timedelta
 from functools import partial
 from itertools import batched
@@ -17,6 +16,7 @@ from easyt.stages.translate import Translator
 from easyt.utils.align import char_map
 from easyt.utils.spans import span
 from easyt.utils.threads import in_thread
+from easyt.utils.wrap import wrap
 from easyt.youtube import Loader
 
 # Seconds a subtitle stays on screen at least, unless its text is spoken faster than that.
@@ -41,11 +41,13 @@ async def _subtitles(translated: list[dict], line_breaker: LLMLineBreaker) -> li
     broken = await run_concurrently(
         [partial(line_breaker, list(texts)) for texts in batched(input_texts, 10)],
     )
-    screens_per_text = [screens for batch in broken for screens in batch]
+    return _timed(translated, [screens for batch in broken for screens in batch])
 
-    # One subtitle per screen, each up a second at least so a short line can be read.
+
+def _timed(texts: list[dict], screens_per_text: list[list[list[str]]]) -> list[srt.Subtitle]:
+    """One subtitle per screen, each up a second at least so a short line can be read."""
     subtitles: list[srt.Subtitle] = []
-    for src, screens in zip(translated, screens_per_text, strict=True):
+    for src, screens in zip(texts, screens_per_text, strict=True):
         start, duration = src["start"], src["duration"]
         floor = min(MIN_SCREEN_SECONDS, duration / len(screens))
         spare = duration - floor * len(screens)
@@ -111,7 +113,7 @@ class Pipeline_subtitle(Pipeline_base):
 
         # generate translated transcript (without wrap-line)
         with span("Timestamps") as s:
-            _, target_lang_results = await in_thread(
+            source_lang_results, target_lang_results = await in_thread(
                 self._inverse_map_timestamp, input, punct_results, translated
             )
             s.result = f"{len(target_lang_results)} sentences"
@@ -122,9 +124,10 @@ class Pipeline_subtitle(Pipeline_base):
         if self.source_lang == self.target_lang:
             return [srt_path]
 
-        # To check what the video says: YouTube's own file, whose overlapping lines stay up longer.
+        # To check what the video says, by sentence: YouTube's own lines overlap and trade places.
+        captions = _timed(source_lang_results, [wrap(s["text"]) for s in source_lang_results])
         captions_path = self.loader.video_path.with_suffix(f".{self.source_lang}.srt")
-        shutil.copy(self.loader.captions_path, captions_path)
+        captions_path.write_text(srt.compose(captions), encoding="utf-8")
         return [srt_path, captions_path]
 
     async def _translate(self, punct_results: list[dict]) -> list[dict]:

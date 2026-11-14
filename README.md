@@ -56,7 +56,7 @@ uv run easyt "https://www.youtube.com/playlist?list=<id>[0:5]"   # part of a pla
 | `--resolution 720p` | video quality: best, 1440p, 1080p (default), 720p |
 | `-q` | only report successes, warnings and errors |
 
-The video, its translated SRT and an SRT of the original captions are saved in `~/.easyt/outputs/` and uploaded to Google Drive.
+The video, its translated SRT and an SRT in the video's own language are saved in `~/.easyt/outputs/` and uploaded to Google Drive.
 
 ### Other modes
 
